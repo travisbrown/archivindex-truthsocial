@@ -1,5 +1,5 @@
 [package]
-name = "truthsocial"
+name = "archivindex-truthsocial"
 description = "Core types for the Truth Social API"
 authors.workspace = true
 homepage.workspace = true

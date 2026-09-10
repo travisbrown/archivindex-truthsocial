@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use truthsocial::model::{Account, Status};
+use archivindex_truthsocial::model::{Account, Status};
 use url::Url;
 use wreq_util::Profile;
 
@@ -36,8 +36,10 @@ const DEFAULT_USER_AGENT: &str =
 /// Construct one with [`Client::new`] (unauthenticated), [`Client::with_token`], or
 /// [`Client::builder`]. Authenticate an existing client in place with [`Client::login`].
 ///
-/// Requests are sent through a browser-impersonating HTTP client (see `DEFAULT_EMULATION`) so they
-/// pass Cloudflare's bot checks, though a flagged network can still draw a challenge.
+/// Requests use the browser emulation described in `DEFAULT_EMULATION`. Cloudflare may still
+/// reject them. Redirects are returned as errors without forwarding credentials or request bodies.
+/// Identifiers in typed endpoints are encoded as individual path components; empty identifiers
+/// and dot segments (`.` and `..`) are rejected.
 ///
 /// The client is cheap to clone (the inner [`wreq::Client`] is reference-counted), but note that a
 /// clone keeps its own copy of the bearer token; logging in on one clone does not affect others.
@@ -168,7 +170,8 @@ impl Client {
     ///
     /// Any request error.
     pub async fn account(&self, id: &str) -> Result<Account<'static>> {
-        self.get_json(&format!("/api/v1/accounts/{id}"), &[]).await
+        self.get_path_json(&["api", "v1", "accounts", id], &[])
+            .await
     }
 
     /// `GET /api/v1/accounts/:id/statuses`: an account's statuses.
@@ -181,7 +184,7 @@ impl Client {
         id: &str,
         params: &TimelineParams,
     ) -> Result<Vec<Status<'static>>> {
-        self.get_json(&format!("/api/v1/accounts/{id}/statuses"), &params.query())
+        self.get_path_json(&["api", "v1", "accounts", id, "statuses"], &params.query())
             .await
     }
 
@@ -191,7 +194,8 @@ impl Client {
     ///
     /// Any request error.
     pub async fn status(&self, id: &str) -> Result<Status<'static>> {
-        self.get_json(&format!("/api/v1/statuses/{id}"), &[]).await
+        self.get_path_json(&["api", "v1", "statuses", id], &[])
+            .await
     }
 
     /// `GET /api/v1/statuses/:id/context`: a status's ancestors and descendants.
@@ -200,7 +204,7 @@ impl Client {
     ///
     /// Any request error.
     pub async fn status_context(&self, id: &str) -> Result<Context> {
-        self.get_json(&format!("/api/v1/statuses/{id}/context"), &[])
+        self.get_path_json(&["api", "v1", "statuses", id, "context"], &[])
             .await
     }
 
@@ -273,7 +277,7 @@ impl Client {
         hashtag: &str,
         params: &TimelineParams,
     ) -> Result<Vec<Status<'static>>> {
-        self.get_json(&format!("/api/v1/timelines/tag/{hashtag}"), &params.query())
+        self.get_path_json(&["api", "v1", "timelines", "tag", hashtag], &params.query())
             .await
     }
 
@@ -287,8 +291,8 @@ impl Client {
         group_id: &str,
         params: &TimelineParams,
     ) -> Result<Vec<Status<'static>>> {
-        self.get_json(
-            &format!("/api/v1/timelines/group/{group_id}"),
+        self.get_path_json(
+            &["api", "v1", "timelines", "group", group_id],
             &params.query(),
         )
         .await
@@ -305,7 +309,7 @@ impl Client {
     /// # Errors
     ///
     /// [`Error::Api`] for a non-success status, [`Error::Decode`] if the body does not match `T`,
-    /// or [`Error::Transport`] / [`Error::Url`].
+    /// [`Error::ExternalUrl`] for another origin, or [`Error::Transport`] / [`Error::Url`].
     pub async fn get_json<T: serde::de::DeserializeOwned>(
         &self,
         path: &str,
@@ -318,13 +322,20 @@ impl Client {
         })
     }
 
-    /// Issue a `GET` and return the raw response body, attaching the bearer token when present.
+    /// Issue a `GET` on the configured origin, attaching the bearer token when present.
+    ///
+    /// Absolute URLs are accepted only on that origin. Redirects are returned as API errors, so
+    /// credentials and request bodies are never forwarded to a redirect target.
     ///
     /// # Errors
     ///
-    /// [`Error::Api`] for a non-success status, or [`Error::Transport`] / [`Error::Url`].
+    /// [`Error::ExternalUrl`] for another origin, [`Error::Api`] for a non-success status, or
+    /// [`Error::Transport`] / [`Error::Url`].
     pub async fn get_text(&self, path: &str, query: &[(&str, String)]) -> Result<String> {
         let url = self.base.join(path)?;
+        if url.origin() != self.base.origin() {
+            return Err(Error::ExternalUrl);
+        }
         let response = self
             .prepare(self.http.get(url.as_str()).query(query))
             .send()
@@ -336,6 +347,29 @@ impl Client {
         } else {
             Err(Error::Api { status, body })
         }
+    }
+
+    /// Encode each endpoint component independently so identifiers cannot change URL structure.
+    async fn get_path_json<T: serde::de::DeserializeOwned>(
+        &self,
+        segments: &[&str],
+        query: &[(&str, String)],
+    ) -> Result<T> {
+        // The URL library removes dot segments, even when supplied through its segment API.
+        if segments
+            .iter()
+            .any(|segment| matches!(*segment, "" | "." | ".."))
+        {
+            return Err(Error::InvalidPathSegment);
+        }
+        let mut url = self.base.clone();
+        url.set_query(None);
+        url.set_fragment(None);
+        url.path_segments_mut()
+            .map_err(|()| Error::InvalidBaseUrl)?
+            .clear()
+            .extend(segments);
+        self.get_json(url.as_str(), query).await
     }
 
     /// Attach the bearer token (when set) and the `Cookie` header (when set) to a request.
@@ -351,7 +385,7 @@ impl Client {
 }
 
 /// Builder for a [`Client`].
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ClientBuilder {
     base_url: String,
     token: Option<String>,
@@ -359,6 +393,19 @@ pub struct ClientBuilder {
     user_agent: Option<String>,
     cookies: Vec<(String, String)>,
     timeout: Option<Duration>,
+}
+
+impl std::fmt::Debug for ClientBuilder {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ClientBuilder")
+            .field("has_token", &self.token.is_some())
+            .field("emulation", &self.emulation)
+            .field("user_agent", &self.user_agent)
+            .field("cookie_count", &self.cookies.len())
+            .field("timeout", &self.timeout)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Default for ClientBuilder {
@@ -391,8 +438,8 @@ impl ClientBuilder {
     }
 
     /// Apply a captured [`Config`]: its User-Agent, `cf_clearance` (and `__cf_bm`) cookies, and
-    /// bearer token (if any). Produced by `truthsocial-api setup`. This does not change the
-    /// emulation profile; absent optional values leave existing builder settings in place.
+    /// bearer token (if any). Produced by `archivindex-truthsocial-api setup`. This does not change
+    /// the emulation profile; absent optional values leave existing builder settings in place.
     #[must_use]
     pub fn config(mut self, config: &Config) -> Self {
         self = self
@@ -456,12 +503,20 @@ impl ClientBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Url`] if the base URL is invalid, or [`Error::Transport`] if the HTTP
-    /// client cannot be initialized.
+    /// Returns [`Error::Url`] if the base URL cannot be parsed, [`Error::InvalidBaseUrl`] for
+    /// a non-HTTP(S) URL or URL credentials, or [`Error::Transport`] if initialization fails.
     pub fn build(self) -> Result<Client> {
         let base = Url::parse(&self.base_url)?;
+        if !matches!(base.scheme(), "http" | "https")
+            || !base.username().is_empty()
+            || base.password().is_some()
+        {
+            return Err(Error::InvalidBaseUrl);
+        }
 
-        let mut builder = wreq::Client::builder().emulation(self.emulation);
+        let mut builder = wreq::Client::builder()
+            .emulation(self.emulation)
+            .redirect(wreq::redirect::Policy::none());
         if let Some(user_agent) = self.user_agent {
             builder = builder.user_agent(user_agent);
         }
@@ -516,5 +571,26 @@ mod tests {
     fn invalid_base_url_is_rejected() {
         let result = Client::builder().base_url("not a url").build();
         assert!(matches!(result, Err(Error::Url(_))));
+    }
+
+    #[test]
+    fn debug_omits_credentials_before_and_after_building() {
+        let builder = Client::builder()
+            .token("secret-token")
+            .cf_clearance("secret-cookie");
+        let client = builder.clone().build().expect("build");
+        for debug in [
+            format!("{builder:?}"),
+            format!("{builder:#?}"),
+            format!("{client:?}"),
+            format!("{client:#?}"),
+        ] {
+            assert!(!debug.contains("secret-token"));
+            assert!(!debug.contains("secret-cookie"));
+        }
+
+        // Even an invalid base URL must not expose credentials while being configured.
+        let builder = builder.base_url("https://user:secret-password@example.com/");
+        assert!(!format!("{builder:?}").contains("secret-password"));
     }
 }

@@ -10,8 +10,8 @@
 use std::collections::BTreeSet;
 use std::io::Read;
 
+use archivindex_truthsocial::model::StatusContent;
 use flate2::read::GzDecoder;
-use truthsocial::model::StatusContent;
 
 /// The snapshot directory on disk, used only to detect drift from [`FIXTURES`].
 const SNAPSHOTS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/wbm/snapshots");

@@ -6,7 +6,8 @@
 //! advertising metrics.
 //!
 //! String fields use [`Cow`] to support owned and borrowed values. Serde deserialization stores
-//! these strings as owned values. Wayback Machine integration lives in `truthsocial-wbm`.
+//! these strings as owned values. Wayback Machine integration lives in
+//! `archivindex-truthsocial-wbm`.
 
 use std::borrow::Cow;
 

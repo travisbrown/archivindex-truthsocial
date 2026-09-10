@@ -1,5 +1,5 @@
 [package]
-name = "truthsocial-wbm-cli"
+name = "archivindex-truthsocial-wbm-cli"
 description = "Command-line tools for Truth Social Wayback Machine archives"
 authors.workspace = true
 repository.workspace = true
@@ -13,9 +13,9 @@ publish = false
 workspace = true
 
 [[bin]]
-name = "truthsocial-wbm"
+name = "archivindex-truthsocial-wbm"
 path = "src/main.rs"
-# Avoid a rustdoc output-filename collision with the `truthsocial-wbm` library crate.
+# Avoid a rustdoc output-filename collision with the `archivindex-truthsocial-wbm` library crate.
 doc = false
 
 [dependencies]
@@ -25,8 +25,8 @@ archivindex-wbm-cdx-index.workspace = true
 archivindex-wbm-json.workspace = true
 archivindex-wbm-json-gzip.workspace = true
 archivindex-wbm-json-processing.workspace = true
-truthsocial.workspace = true
-truthsocial-wbm.workspace = true
+archivindex-truthsocial.workspace = true
+archivindex-truthsocial-wbm.workspace = true
 clap.workspace = true
 csv.workspace = true
 log.workspace = true

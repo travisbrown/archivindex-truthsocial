@@ -4,7 +4,8 @@
 //! data and related types like accounts, media attachments, mentions, and tags.
 //!
 //! All model types live in [`model`]. These same types double as the content model for Wayback
-//! Machine archive snapshots; that integration lives in the separate `truthsocial-wbm` crate.
+//! Machine archive snapshots; that integration lives in the separate `archivindex-truthsocial-wbm`
+//! crate.
 pub mod model;
 
 /// Classification of Truth Social API URLs.

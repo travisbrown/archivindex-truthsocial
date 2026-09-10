@@ -1,4 +1,4 @@
-//! `truthsocial-api`: command-line access to the Truth Social API.
+//! `archivindex-truthsocial-api`: command-line access to the Truth Social API.
 //!
 //! Subcommands:
 //!   - `setup`: open a browser to log in and clear Cloudflare, saving the session (User-Agent,
@@ -14,14 +14,14 @@
 //!     raw JSON results.
 //!
 //! ```text
-//! cargo run -p truthsocial-api-cli -- setup
-//! cargo run -p truthsocial-api-cli -- lookup-user-name realDonaldTrump
-//! cargo run -p truthsocial-api-cli -- lookup-user-id 107780257626128497
-//! cargo run -p truthsocial-api-cli -- lookup-status 116803704330293684
-//! cargo run -p truthsocial-api-cli -- lookup-group-id 110419665997191580
-//! cargo run -p truthsocial-api-cli -- lookup-group-name rapesaw-gang
-//! cargo run -p truthsocial-api-cli -- group-memberships 112969595140221305 --role member
-//! cargo run -p truthsocial-api-cli -- search trump --type groups
+//! cargo run -p archivindex-truthsocial-api-cli -- setup
+//! cargo run -p archivindex-truthsocial-api-cli -- lookup-user-name realDonaldTrump
+//! cargo run -p archivindex-truthsocial-api-cli -- lookup-user-id 107780257626128497
+//! cargo run -p archivindex-truthsocial-api-cli -- lookup-status 116803704330293684
+//! cargo run -p archivindex-truthsocial-api-cli -- lookup-group-id 110419665997191580
+//! cargo run -p archivindex-truthsocial-api-cli -- lookup-group-name rapesaw-gang
+//! cargo run -p archivindex-truthsocial-api-cli -- group-memberships 112969595140221305 --role member
+//! cargo run -p archivindex-truthsocial-api-cli -- search trump --type groups
 //! ```
 //!
 //! `--config <path>` overrides the config location (default `creds.toml`). `setup` also honors
@@ -33,17 +33,17 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use archivindex_cli_support::{CommandOutcome, Verbosity};
+use archivindex_truthsocial_api::client::Client;
+use archivindex_truthsocial_api::config::Config;
+use archivindex_truthsocial_api::types::SearchKind;
 use chromiumoxide::{Browser, BrowserConfig};
 use clap::Parser;
 use futures::StreamExt;
-use truthsocial_api::client::Client;
-use truthsocial_api::config::Config;
-use truthsocial_api::types::SearchKind;
 
 const START_URL: &str = "https://truthsocial.com/";
 
 #[derive(Debug, Parser)]
-#[command(name = "truthsocial-api", version, author)]
+#[command(name = "archivindex-truthsocial-api", version, author)]
 struct Opts {
     #[command(flatten)]
     verbosity: Verbosity,
@@ -373,13 +373,13 @@ async fn setup(output: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-/// Errors from the `truthsocial-api` commands.
+/// Errors from the `archivindex-truthsocial-api` commands.
 #[derive(Debug, thiserror::Error)]
 enum Error {
     #[error("API client error")]
-    Api(#[from] truthsocial_api::error::Error),
+    Api(#[from] archivindex_truthsocial_api::error::Error),
     #[error("config error")]
-    Config(#[from] truthsocial_api::config::ConfigError),
+    Config(#[from] archivindex_truthsocial_api::config::ConfigError),
     #[error("browser error")]
     Browser(#[from] chromiumoxide::error::CdpError),
     #[error("browser configuration error: {0}")]

@@ -8,7 +8,7 @@
 //!
 //! This mirrors `tests/statuses.rs`; here each payload is a single group object.
 
-use truthsocial::model::Group;
+use archivindex_truthsocial::model::Group;
 
 mod common;
 

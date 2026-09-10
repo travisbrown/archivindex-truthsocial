@@ -7,7 +7,7 @@
 //!
 //! This mirrors `tests/statuses.rs`; each file is a single account object.
 
-use truthsocial::model::Account;
+use archivindex_truthsocial::model::Account;
 
 mod common;
 

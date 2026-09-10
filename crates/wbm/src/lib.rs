@@ -1,20 +1,20 @@
 //! Wayback Machine (WTJ) archive snapshot integration for Truth Social types.
 //!
-//! This crate plugs [`truthsocial::model::Status`] into the `archivindex-wbm-json` snapshot
-//! infrastructure. [`validation_context`] builds the Truth Social [`Context`] (with the gzip
-//! codec), [`WtjSnapshot`] wraps a snapshot's [`StatusContent`], [`read_statuses`] streams statuses
-//! out of a zstd-compressed compact snapshot file, and [`merge_compact`] merges two such files in
-//! digest order. The [`cdx`] module reads directories of CDX entry files.
+//! This crate plugs [`archivindex_truthsocial::model::Status`] into the `archivindex-wbm-json`
+//! snapshot infrastructure. [`validation_context`] builds the Truth Social [`Context`] (with the
+//! gzip codec), [`WtjSnapshot`] wraps a snapshot's [`StatusContent`], [`read_statuses`] streams
+//! statuses out of a zstd-compressed compact snapshot file, and [`merge_compact`] merges two such
+//! files in digest order. The [`cdx`] module reads directories of CDX entry files.
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
+use archivindex_truthsocial::model::{Status, StatusContent};
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json::context::Context;
 use archivindex_wbm_json::exact::ExactSnapshot;
 use bounded_static::IntoBoundedStatic;
 use either::Either;
-use truthsocial::model::{Status, StatusContent};
 
 pub mod cdx;
 
@@ -323,9 +323,9 @@ mod tests {
 
     use super::*;
 
-    /// The curated Truth Social snapshot corpus, shared with the `truthsocial` crate's fixtures.
-    /// Each file is named by the uppercase Base32 SHA-1 digest of its original bytes and holds
-    /// one snapshot's `StatusContent` payload; some are gzip-compressed (magic `1f 8b`).
+    /// The curated Truth Social snapshot corpus, shared with the `archivindex-truthsocial` crate's
+    /// fixtures. Each file is named by the uppercase Base32 SHA-1 digest of its original bytes and
+    /// holds one snapshot's `StatusContent` payload; some are gzip-compressed (magic `1f 8b`).
     const CURATED_SNAPSHOTS_DIR: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../core/tests/data/wbm/snapshots"

@@ -1,10 +1,10 @@
 //! Request parameters and composite response types specific to the API surface.
 //!
-//! Individual entities (statuses, accounts, tags, …) reuse the [`truthsocial::model`] types; this
-//! module only adds the wrappers the endpoints return (search results, status context) and the
-//! pagination/filter parameters they accept.
+//! Individual entities (statuses, accounts, tags, …) reuse the [`archivindex_truthsocial::model`]
+//! types; this module only adds the wrappers the endpoints return (search results, status context)
+//! and the pagination/filter parameters they accept.
 
-use truthsocial::model::{Account, Group, Status, Tag};
+use archivindex_truthsocial::model::{Account, Group, Status, Tag};
 
 /// Pagination and filtering parameters shared by the timeline-style endpoints.
 ///

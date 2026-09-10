@@ -1,6 +1,7 @@
 //! An asynchronous client for the [Truth Social](https://truthsocial.com) HTTP API.
 //!
-//! Responses use the shared [`truthsocial::model`] types for both live API data and archives.
+//! Responses use the shared [`archivindex_truthsocial::model`] types for both live API data and
+//! archives.
 //!
 //! # Authentication
 //!
@@ -11,7 +12,7 @@
 //!
 //! ```no_run
 //! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
-//! use truthsocial_api::{auth::Credentials, client::Client, types::TimelineParams};
+//! use archivindex_truthsocial_api::{auth::Credentials, client::Client, types::TimelineParams};
 //!
 //! let mut client = Client::new()?;
 //! client.login(&Credentials::from_env()?).await?;
@@ -28,10 +29,10 @@
 //! # Browser sessions
 //!
 //! The client emulates Firefox by default, but requests can still receive a Cloudflare challenge.
-//! Run `cargo run -p truthsocial-api-cli -- setup` to capture a browser session, then load the
-//! resulting file with [`Config::load`](config::Config::load) and apply it with
-//! [`ClientBuilder::config`](client::ClientBuilder::config). Setup captures a bearer token when
-//! it can find one; otherwise, supply a token or call `login` separately.
+//! Run `cargo run -p archivindex-truthsocial-api-cli -- setup` to capture a browser session, then
+//! load the resulting file with [`Config::load`](config::Config::load) and apply it with
+//! [`ClientBuilder::config`](client::ClientBuilder::config). Setup captures a bearer token when it
+//! can find one; otherwise, supply a token or call `login` separately.
 //!
 pub mod auth;
 pub mod client;

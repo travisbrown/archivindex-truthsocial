@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use archivindex_cli_support::{CommandOutcome, Verbosity};
+use archivindex_truthsocial::model::{ResponseBody, StatusContent};
 use archivindex_wbm::cdx::item::Item;
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json::format::FormatInfo;
@@ -17,7 +18,6 @@ use archivindex_wbm_json_processing::process::compact::{CompactConfig, Partition
 use clap::Parser;
 use rand::RngExt;
 use serde::Serialize;
-use truthsocial::model::{ResponseBody, StatusContent};
 
 mod cdx;
 
@@ -151,7 +151,7 @@ fn run() -> Result<CommandOutcome, Error> {
             output,
             level,
         } => {
-            let context = truthsocial_wbm::validation_context();
+            let context = archivindex_truthsocial_wbm::validation_context();
             let summary = archivindex_wbm_json_processing::process::pack::pack(
                 &data,
                 Some(&invalid_db),
@@ -182,7 +182,7 @@ fn run() -> Result<CommandOutcome, Error> {
             level,
             batch_size,
         } => {
-            let context = truthsocial_wbm::validation_context();
+            let context = archivindex_truthsocial_wbm::validation_context();
             let metadata = archivindex_wbm_cdx_index::metadata::MetadataDb::open(&metadata_db)?;
             let summary = archivindex_wbm_json_processing::process::enhance::enhance(
                 &input,
@@ -207,7 +207,7 @@ fn run() -> Result<CommandOutcome, Error> {
             CommandOutcome::Success
         }
         Command::Validate { input } => {
-            let context = truthsocial_wbm::validation_context();
+            let context = archivindex_truthsocial_wbm::validation_context();
 
             validate_compact(&input, &context)?
         }
@@ -474,8 +474,8 @@ fn print_missing_cdx(cdx_dir: &Path, compact: &Path, limit: Option<usize>) -> Re
 
     // CDX entries absent from the compact file. An entry counts as "present" only when it has a
     // recognizable status ID / valid digest that is actually indexed; otherwise it is missing.
-    let missing =
-        truthsocial_wbm::cdx::read_cdx_entries(cdx_dir)?.filter_map(|entry| match entry {
+    let missing = archivindex_truthsocial_wbm::cdx::read_cdx_entries(cdx_dir)?.filter_map(
+        |entry| match entry {
             Err(error) => Some(Err(error)),
             Ok(item) => {
                 let id_present =
@@ -491,7 +491,8 @@ fn print_missing_cdx(cdx_dir: &Path, compact: &Path, limit: Option<usize>) -> Re
                     Some(Ok(item))
                 }
             }
-        });
+        },
+    );
 
     let mut writer = csv::Writer::from_writer(std::io::stdout().lock());
 
@@ -564,7 +565,7 @@ fn merge_compact_files(first: &Path, second: &Path) -> Result<(), Error> {
     let stdout = std::io::stdout();
     let mut writer = BufWriter::new(stdout.lock());
 
-    let summary = truthsocial_wbm::merge_compact(first, second, &mut writer)?;
+    let summary = archivindex_truthsocial_wbm::merge_compact(first, second, &mut writer)?;
     writer.flush()?;
 
     log::info!(
@@ -581,8 +582,8 @@ fn merge_compact_files(first: &Path, second: &Path) -> Result<(), Error> {
 /// metadata, into a single zstd-compressed NDJSON snapshot file, writing a JSON run summary.
 ///
 /// Uses [`archivindex_wbm_json_processing::process::compact`] with a single output partition (the
-/// Truth Social [`validation_context`](truthsocial_wbm::validation_context)). `invalid_db` is the
-/// SQLite database of known-invalid digests consulted during CDX resolution.
+/// Truth Social [`validation_context`](archivindex_truthsocial_wbm::validation_context)).
+/// `invalid_db` is the SQLite database of known-invalid digests consulted during CDX resolution.
 fn compact(
     cdx: &Path,
     data: &Path,
@@ -592,7 +593,7 @@ fn compact(
     level: u16,
     skip_unresolved: bool,
 ) -> Result<(), Error> {
-    let context = truthsocial_wbm::validation_context();
+    let context = archivindex_truthsocial_wbm::validation_context();
 
     let summary = archivindex_wbm_json_processing::process::compact::compact(
         &[data],
@@ -643,9 +644,9 @@ enum Error {
     #[error("CDX source directory reading error")]
     CdxSource(#[from] cdx::Error),
     #[error("CDX entry reading error")]
-    WbmCdx(#[from] truthsocial_wbm::cdx::CdxError),
+    WbmCdx(#[from] archivindex_truthsocial_wbm::cdx::CdxError),
     #[error("compact file merge error")]
-    Merge(#[from] truthsocial_wbm::MergeError),
+    Merge(#[from] archivindex_truthsocial_wbm::MergeError),
     #[error("compact error")]
     Compact(#[from] archivindex_wbm_json_processing::process::compact::Error),
     #[error("pack error")]
@@ -698,7 +699,7 @@ impl FileError {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "truthsocial-wbm", version, author)]
+#[command(name = "archivindex-truthsocial-wbm", version, author)]
 struct Opts {
     #[command(flatten)]
     verbosity: Verbosity,

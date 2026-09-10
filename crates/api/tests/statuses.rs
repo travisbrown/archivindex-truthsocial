@@ -9,7 +9,7 @@
 //! (never gzip), and each file is a single status object rather than a `StatusContent` that may
 //! also be an array.
 
-use truthsocial::model::Status;
+use archivindex_truthsocial::model::Status;
 
 mod common;
 

@@ -2,13 +2,13 @@
 resolver = "3"
 members = ["crates/*", "tools/*"]
 # `tools/api-cli` pulls in `chromiumoxide` (a heavy, browser-driving dependency), so it is excluded
-# from the default set. Build it explicitly with `-p truthsocial-api-cli`.
+# from the default set. Build it explicitly with `-p archivindex-truthsocial-api-cli`.
 default-members = ["crates/api", "crates/core", "crates/wbm", "tools/wbm-cli"]
 
 [workspace.package]
 authors = ["Travis Brown <travisrobertbrown@gmail.com>"]
-homepage = "https://github.com/travisbrown/truthsocial"
-repository = "https://github.com/travisbrown/truthsocial"
+homepage = "https://github.com/travisbrown/archivindex-truthsocial"
+repository = "https://github.com/travisbrown/archivindex-truthsocial"
 keywords = ["truthsocial", "mastodon"]
 edition = "2024"
 rust-version = "1.98"
@@ -19,6 +19,9 @@ readme = "README.md"
 [workspace.dependencies]
 archivindex-cli-support = { git = "https://github.com/travisbrown/archivindex" }
 archivindex-publication = { version = "0.1.0", git = "https://github.com/travisbrown/archivindex" }
+archivindex-truthsocial = { version = "0.1.0", path = "crates/core" }
+archivindex-truthsocial-api = { version = "0.1.0", path = "crates/api" }
+archivindex-truthsocial-wbm = { version = "0.1.0", path = "crates/wbm" }
 archivindex-wbm = { version = "0.1.0", git = "https://github.com/travisbrown/archivindex-wbm" }
 archivindex-wbm-cdx-index = { version = "0.1.0", git = "https://github.com/travisbrown/archivindex-wbm" }
 archivindex-wbm-json = { version = "0.1.0", git = "https://github.com/travisbrown/archivindex-wbm" }
@@ -26,7 +29,7 @@ archivindex-wbm-json-gzip = { version = "0.1.0", git = "https://github.com/travi
 archivindex-wbm-json-processing = { version = "0.1.0", git = "https://github.com/travisbrown/archivindex-wbm" }
 archivindex-wbm-test-data = { git = "https://github.com/travisbrown/archivindex-wbm" }
 bounded-static = "0.8"
-# Drives a headed Chromium so the user can log in / clear Cloudflare (`truthsocial-api setup`).
+# Drives a headed Chromium so the user can log in / clear Cloudflare (`archivindex-truthsocial-api setup`).
 chromiumoxide = "0.9"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
@@ -45,9 +48,6 @@ tempfile = "3"
 thiserror = "2"
 tokio = "1"
 toml = "1"
-truthsocial = { version = "0.1.0", path = "crates/core" }
-truthsocial-api = { version = "0.1.0", path = "crates/api" }
-truthsocial-wbm = { version = "0.1.0", path = "crates/wbm" }
 url = { version = "2", features = ["serde"] }
 wiremock = "0.6"
 # Emulates a browser's TLS/HTTP2 fingerprint and headers, without which Cloudflare rejects requests

@@ -4,14 +4,14 @@
 //! `<query>.json`: `groups/` holds group search responses and `topics/` holds hashtag search
 //! responses. Fixtures are embedded at compile time and asserted to deserialize as
 //! [`SearchResults`], exercising the fields that appear only in search results: the group
-//! [`position`](truthsocial::model::Group::position) and the hashtag
-//! [`history`](truthsocial::model::Tag::history) / `recent_*` clusters. A per-facet test keeps the
-//! embedded lists and the on-disk directories in sync.
+//! [`position`](archivindex_truthsocial::model::Group::position) and the hashtag
+//! [`history`](archivindex_truthsocial::model::Tag::history) / `recent_*` clusters. A per-facet
+//! test keeps the embedded lists and the on-disk directories in sync.
 //!
 //! This mirrors `tests/statuses.rs`; here each payload is a composite `SearchResults` object rather
 //! than a single entity.
 
-use truthsocial_api::types::SearchResults;
+use archivindex_truthsocial_api::types::SearchResults;
 
 mod common;
 

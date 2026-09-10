@@ -1,5 +1,5 @@
 [package]
-name = "truthsocial-api"
+name = "archivindex-truthsocial-api"
 description = "Async client for the Truth Social HTTP API"
 authors.workspace = true
 homepage.workspace = true
@@ -23,7 +23,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 archivindex-publication.workspace = true
-truthsocial.workspace = true
+archivindex-truthsocial.workspace = true
 chrono.workspace = true
 log.workspace = true
 serde.workspace = true

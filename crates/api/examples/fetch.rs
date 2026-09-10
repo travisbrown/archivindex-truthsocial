@@ -1,13 +1,13 @@
 //! Fetch an account and its most recent statuses, authenticating from a session config file (the
-//! one written by `truthsocial-api setup`).
+//! one written by `archivindex-truthsocial-api setup`).
 //!
 //! ```text
 //! # 1. Capture a session (opens a browser to log in / clear Cloudflare); writes creds.toml:
-//! cargo run -p truthsocial-api-cli -- setup
+//! cargo run -p archivindex-truthsocial-api-cli -- setup
 //!
 //! # 2. Fetch (config defaults to creds.toml; override the path with --config):
-//! cargo run -p truthsocial-api --example fetch -- realDonaldTrump
-//! cargo run -p truthsocial-api --example fetch -- realDonaldTrump --config path/to/creds.toml
+//! cargo run -p archivindex-truthsocial-api --example fetch -- realDonaldTrump
+//! cargo run -p archivindex-truthsocial-api --example fetch -- realDonaldTrump --config path/to/creds.toml
 //! ```
 //!
 //! If the config has no bearer token, the example falls back to an OAuth password-grant login from
@@ -16,10 +16,10 @@
 
 use std::path::PathBuf;
 
-use truthsocial_api::auth::Credentials;
-use truthsocial_api::client::Client;
-use truthsocial_api::config::Config;
-use truthsocial_api::types::TimelineParams;
+use archivindex_truthsocial_api::auth::Credentials;
+use archivindex_truthsocial_api::client::Client;
+use archivindex_truthsocial_api::config::Config;
+use archivindex_truthsocial_api::types::TimelineParams;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("Loaded session from {}", config_path.display());
         }
         Err(error) => eprintln!(
-            "Could not load a session from {} ({error}); run `truthsocial-api-cli` to create one",
+            "Could not load a session from {} ({error}); run `archivindex-truthsocial-api-cli` to create one",
             config_path.display()
         ),
     }

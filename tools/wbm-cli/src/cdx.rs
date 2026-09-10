@@ -1,19 +1,19 @@
 //! Reading Truth Social status captures out of CDX index files.
 //!
-//! [`read_all`] streams every CDX entry in a directory (via [`truthsocial_wbm::cdx`]) and reduces
-//! each status capture to a compact [`Row`] of `(id, timestamp, digest)`, sorted and deduplicated.
-//! [`read_compressed_csv`] reads these rows from CSV after `extract` output has been compressed
-//! with zstd. `extract` itself writes uncompressed CSV.
+//! [`read_all`] streams every CDX entry in a directory (via [`archivindex_truthsocial_wbm::cdx`])
+//! and reduces each status capture to a compact [`Row`] of `(id, timestamp, digest)`, sorted and
+//! deduplicated. [`read_compressed_csv`] reads these rows from CSV after `extract` output has been
+//! compressed with zstd. `extract` itself writes uncompressed CSV.
 
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+use archivindex_truthsocial_wbm::cdx::{CdxError, read_cdx_entries};
 use archivindex_wbm::cdx::item::Item;
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm::timestamp::Timestamp;
 use thiserror::Error;
-use truthsocial_wbm::cdx::{CdxError, read_cdx_entries};
 
 /// An error reading CDX captures.
 #[derive(Debug, Error)]
@@ -54,10 +54,10 @@ pub enum Error {
 /// Reads every CDX entry file in `base`, reduces each Truth Social status capture to a [`Row`], and
 /// returns the rows sorted by `(id, timestamp, digest)` with exact duplicates removed.
 ///
-/// The directory is read through [`truthsocial_wbm::cdx::read_cdx_entries`], which streams both
-/// plain (`*.json`) and zstd-compressed (`*.json.zst`) files. Entries whose URL is not a status
-/// (e.g. account or media captures) or whose digest is invalid are logged and skipped rather than
-/// aborting the run.
+/// The directory is read through [`archivindex_truthsocial_wbm::cdx::read_cdx_entries`], which
+/// streams both plain (`*.json`) and zstd-compressed (`*.json.zst`) files. Entries whose URL is not
+/// a status (e.g. account or media captures) or whose digest is invalid are logged and skipped
+/// rather than aborting the run.
 ///
 /// # Errors
 ///
@@ -154,11 +154,15 @@ pub fn read_compressed_csv<P: AsRef<Path>>(path: P) -> Result<Vec<Row>, Error> {
 ///
 /// [`Error::InvalidStatusId`] if the URL does not identify an individual status, or
 /// [`Error::ParseIntError`] if its numeric ID does not fit in a `u64`. See
-/// [`truthsocial::url::parse_status_id`] for the accepted endpoint policy.
+/// [`archivindex_truthsocial::url::parse_status_id`] for the accepted endpoint policy.
 pub fn parse_status_id(url: &str) -> Result<u64, Error> {
-    truthsocial::url::parse_status_id(url).map_err(|error| match error {
-        truthsocial::url::StatusUrlError::InvalidUrl => Error::InvalidStatusId(url.to_owned()),
-        truthsocial::url::StatusUrlError::InvalidId(source) => Error::ParseIntError(source),
+    archivindex_truthsocial::url::parse_status_id(url).map_err(|error| match error {
+        archivindex_truthsocial::url::StatusUrlError::InvalidUrl => {
+            Error::InvalidStatusId(url.to_owned())
+        }
+        archivindex_truthsocial::url::StatusUrlError::InvalidId(source) => {
+            Error::ParseIntError(source)
+        }
     })
 }
 

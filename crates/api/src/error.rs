@@ -35,6 +35,18 @@ pub enum Error {
         source: serde_json::Error,
     },
 
+    /// The configured origin is not HTTP(S), or contains URL credentials.
+    #[error("API base URL must use HTTP or HTTPS without URL credentials")]
+    InvalidBaseUrl,
+
+    /// A request path resolves outside the configured API origin.
+    #[error("API request URL must stay on the configured origin")]
+    ExternalUrl,
+
+    /// An endpoint identifier is empty or is a dot segment, which cannot identify a resource.
+    #[error("API endpoint identifiers must be nonempty and cannot be dot segments")]
+    InvalidPathSegment,
+
     /// A request URL could not be constructed from the configured base URL.
     #[error("invalid URL")]
     Url(#[from] url::ParseError),

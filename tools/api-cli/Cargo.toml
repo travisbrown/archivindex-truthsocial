@@ -1,5 +1,5 @@
 [package]
-name = "truthsocial-api-cli"
+name = "archivindex-truthsocial-api-cli"
 description = "Command-line utilities for the Truth Social API client (browser-assisted login)"
 authors.workspace = true
 homepage.workspace = true
@@ -15,14 +15,14 @@ publish = false
 workspace = true
 
 [[bin]]
-name = "truthsocial-api"
+name = "archivindex-truthsocial-api"
 path = "src/main.rs"
-# Avoid a rustdoc output-filename collision with the `truthsocial-api` library crate.
+# Avoid a rustdoc output-filename collision with the `archivindex-truthsocial-api` library crate.
 doc = false
 
 [dependencies]
 archivindex-cli-support.workspace = true
-truthsocial-api.workspace = true
+archivindex-truthsocial-api.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

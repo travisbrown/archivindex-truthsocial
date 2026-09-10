@@ -1,7 +1,7 @@
 //! Persisted session configuration: the User-Agent and Cloudflare cookies (and optionally a bearer
 //! token) needed to reach the API from a flagged network.
 //!
-//! Produced by the `setup` command of the `truthsocial-api-cli` crate and consumed via
+//! Produced by the `setup` command of the `archivindex-truthsocial-api-cli` crate and consumed via
 //! [`ClientBuilder::config`](crate::client::ClientBuilder::config).
 
 use std::io::Write as _;

@@ -11,10 +11,10 @@
 //! is deliberately avoided: `flate2::read::GzDecoder` decompresses captures the codec cannot
 //! reproduce, which would let an unverifiable snapshot pass as valid.
 
+use archivindex_truthsocial::model::{ResponseBody, StatusContent};
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json_gzip::{GzipParams, codec};
 use archivindex_wbm_test_data::Cache;
-use truthsocial::model::{ResponseBody, StatusContent};
 
 /// The gitignored directory each snapshot is downloaded into.
 const CACHE_DIRECTORY: &str = "tests/data/.cache";
@@ -109,6 +109,7 @@ fn assert_parses_as_account(content: &str, digest: &str) {
 }
 
 #[tokio::test]
+#[ignore = "requires live Wayback Machine access"]
 async fn parses_null_visibility_snapshot() {
     let Some(content) = fetch_verified_content(
         NULL_VISIBILITY_URL,
@@ -123,6 +124,7 @@ async fn parses_null_visibility_snapshot() {
 }
 
 #[tokio::test]
+#[ignore = "requires live Wayback Machine access"]
 async fn parses_unknown_media_snapshot() {
     let Some(content) = fetch_verified_content(
         UNKNOWN_MEDIA_URL,
@@ -137,6 +139,7 @@ async fn parses_unknown_media_snapshot() {
 }
 
 #[tokio::test]
+#[ignore = "requires live Wayback Machine access"]
 async fn parses_account_snapshot() {
     let Some(content) =
         fetch_verified_content(ACCOUNT_URL, ACCOUNT_TIMESTAMP, ACCOUNT_DIGEST).await

@@ -1,11 +1,11 @@
 //! Integration tests for the client's request/response mechanics, driven against a local mock HTTP
 //! server (no external network or real credentials). Deserialization of the shared model types is
-//! covered in the `truthsocial` crate, so these tests use lightweight JSON bodies.
+//! covered in the `archivindex-truthsocial` crate, so these tests use lightweight JSON bodies.
 
-use truthsocial_api::auth::Credentials;
-use truthsocial_api::client::Client;
-use truthsocial_api::error::Error;
-use truthsocial_api::types::SearchKind;
+use archivindex_truthsocial_api::auth::Credentials;
+use archivindex_truthsocial_api::client::Client;
+use archivindex_truthsocial_api::error::Error;
+use archivindex_truthsocial_api::types::SearchKind;
 use wiremock::matchers::{body_string_contains, header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -167,4 +167,134 @@ async fn cf_clearance_cookie_is_sent() {
         .expect("request with cookie succeeds");
 
     assert_eq!(value["ok"], true);
+}
+
+#[tokio::test]
+async fn credentials_are_not_sent_to_another_origin() {
+    let origin = MockServer::start().await;
+    let other = MockServer::start().await;
+    let client = Client::builder()
+        .base_url(origin.uri())
+        .token("secret")
+        .cf_clearance("clearance")
+        .build()
+        .unwrap();
+    for path in [
+        format!("{}/api/v1/custom", other.uri()),
+        other.uri().replacen("http:", "", 1),
+    ] {
+        assert!(matches!(
+            client.get_text(&path, &[]).await,
+            Err(Error::ExternalUrl)
+        ));
+    }
+    assert!(other.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn login_does_not_forward_its_password_grant_on_redirect() {
+    let origin = MockServer::start().await;
+    let other = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/oauth/token"))
+        .respond_with(ResponseTemplate::new(307).insert_header("location", other.uri()))
+        .expect(1)
+        .mount(&origin)
+        .await;
+    let mut client = Client::builder().base_url(origin.uri()).build().unwrap();
+    assert!(matches!(
+        client
+            .login(&Credentials::new(
+                "client",
+                "client-secret",
+                "alice",
+                "password"
+            ))
+            .await,
+        Err(Error::Auth(_))
+    ));
+    assert!(other.received_requests().await.unwrap().is_empty());
+}
+
+#[test]
+fn base_urls_require_http_without_embedded_credentials() {
+    for base in [
+        "file:///tmp/api",
+        "ftp://example.com/",
+        "https://user:secret@example.com/",
+    ] {
+        assert!(matches!(
+            Client::builder().base_url(base).build(),
+            Err(Error::InvalidBaseUrl)
+        ));
+    }
+}
+
+#[tokio::test]
+async fn endpoint_identifiers_cannot_change_the_request_path_or_query() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(404))
+        .expect(6)
+        .mount(&server)
+        .await;
+    let client = Client::builder()
+        .base_url(format!("{}/base?discard=this#fragment", server.uri()))
+        .build()
+        .unwrap();
+    let identifier = "a/b?c#d%2Fé";
+    let params = archivindex_truthsocial_api::types::TimelineParams::default();
+    assert!(matches!(
+        client.account(identifier).await,
+        Err(Error::Api { .. })
+    ));
+    assert!(matches!(
+        client.account_statuses(identifier, &params).await,
+        Err(Error::Api { .. })
+    ));
+    assert!(matches!(
+        client.status(identifier).await,
+        Err(Error::Api { .. })
+    ));
+    assert!(matches!(
+        client.status_context(identifier).await,
+        Err(Error::Api { .. })
+    ));
+    assert!(matches!(
+        client.hashtag_timeline(identifier, &params).await,
+        Err(Error::Api { .. })
+    ));
+    assert!(matches!(
+        client.group_timeline(identifier, &params).await,
+        Err(Error::Api { .. })
+    ));
+
+    let encoded = "a%2Fb%3Fc%23d%252F%C3%A9";
+    let paths = [
+        format!("/api/v1/accounts/{encoded}"),
+        format!("/api/v1/accounts/{encoded}/statuses"),
+        format!("/api/v1/statuses/{encoded}"),
+        format!("/api/v1/statuses/{encoded}/context"),
+        format!("/api/v1/timelines/tag/{encoded}"),
+        format!("/api/v1/timelines/group/{encoded}"),
+    ];
+    let requests = server.received_requests().await.unwrap();
+    for (request, path) in requests.iter().zip(paths) {
+        assert_eq!(request.url.path(), path);
+        assert!(request.url.query().is_none());
+        assert!(request.url.fragment().is_none());
+    }
+}
+
+#[tokio::test]
+async fn empty_and_dot_identifiers_are_rejected_before_sending() {
+    let server = MockServer::start().await;
+    let client = Client::builder().base_url(server.uri()).build().unwrap();
+    for identifier in ["", ".", ".."] {
+        assert!(matches!(
+            client.status(identifier).await,
+            Err(Error::InvalidPathSegment)
+        ));
+    }
+    assert!(server.received_requests().await.unwrap().is_empty());
 }
