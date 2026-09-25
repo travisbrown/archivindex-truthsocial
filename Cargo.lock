@@ -294,7 +294,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-cdx",
  "archivindex-digest",
@@ -315,7 +315,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-cas"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-publication",
  "archivindex-wbm",
@@ -329,7 +329,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-cdx-index"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-wbm",
  "chrono",
@@ -340,7 +340,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-downloader"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-publication",
  "archivindex-wbm",
@@ -360,7 +360,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-invalid-log"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-wbm",
  "bounded-static",
@@ -372,7 +372,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-lines",
  "archivindex-serde",
@@ -388,7 +388,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json-gzip"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-wbm-json",
  "flate2",
@@ -401,7 +401,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json-processing"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-lines",
  "archivindex-publication",
@@ -426,7 +426,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-test-data"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#92ce784e3843cf95c71c8e3a16301ea74866f9fa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#2b4851fa43478f87a90ff32c3413c28652fb29fb"
 dependencies = [
  "archivindex-wbm",
  "archivindex-wbm-cas",
@@ -3020,7 +3020,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
