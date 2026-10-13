@@ -9,7 +9,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 version.workspace = true
-readme.workspace = true
+readme = "README.md"
 # Fixtures under `tests/` bundle real captured API responses; they are not needed to build or use
 # the crate, so keep them out of the published tarball.
 exclude = ["tests/"]

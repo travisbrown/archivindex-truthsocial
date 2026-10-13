@@ -83,8 +83,8 @@ async fn authenticated_request_sends_bearer_and_query() {
         .await
         .expect("search succeeds");
 
-    assert!(results.accounts.is_empty());
-    assert!(results.statuses.is_empty());
+    assert_eq!(results.accounts, []);
+    assert_eq!(results.statuses, []);
 }
 
 #[tokio::test]

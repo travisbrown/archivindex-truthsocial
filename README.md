@@ -40,14 +40,28 @@ CI checks the workspace configuration with `cargo archivindex-build check`. Inst
 with:
 
 ```console
-cargo install --locked --git https://github.com/travisbrown/archivindex --rev f6e131cb8255090c5384f6cdcb099348247ad1ff cargo-archivindex-build
+cargo install --locked --git https://github.com/travisbrown/archivindex --rev 527867ddf5b1eaaff23413a0a40da4a62d8e360e cargo-archivindex-build
 ```
 
-The workspace requires Rust 1.98 or later. Run its tests and build its documentation with:
+Run `cargo archivindex-build sync` to apply shared workspace and formatter settings, then
+`cargo archivindex-build check` to check the policy. Each publishable crate has its own README.
+Check code, TOML, and Markdown formatting separately:
+
+```console
+cargo +nightly fmt --all -- --check
+taplo fmt --check --diff
+taplo lint
+rumdl check .
+```
+
+The workspace requires Rust 1.98 or later. Run tests, lint checks, the documentation build, and
+dependency checks with:
 
 ```console
 cargo test --locked --workspace --all-features
+cargo hack clippy --locked --workspace --feature-powerset --depth 2 --all-targets -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+cargo deny --workspace check
 ```
 
 ## Offline and live tests

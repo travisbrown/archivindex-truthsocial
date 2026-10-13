@@ -843,7 +843,7 @@ mod tests {
 
         // A zero limit returns nothing.
         let none = reservoir_sample((0..100).map(Ok::<u32, ()>), 0).unwrap();
-        assert!(none.is_empty());
+        assert_eq!(none, [] as [u32; 0]);
     }
 
     /// The first error in the stream aborts sampling.
