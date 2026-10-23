@@ -137,9 +137,10 @@ dependencies = [
 [[package]]
 name = "archivindex-cdx"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#527867ddf5b1eaaff23413a0a40da4a62d8e360e"
+source = "git+https://github.com/travisbrown/archivindex#e788abfd91c924d915175b32f3c453eba9ede4be"
 dependencies = [
  "archivindex-serde",
+ "bounded-static",
  "chrono",
  "serde",
  "serde_json",
@@ -165,7 +166,7 @@ dependencies = [
 [[package]]
 name = "archivindex-digest"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#527867ddf5b1eaaff23413a0a40da4a62d8e360e"
+source = "git+https://github.com/travisbrown/archivindex#e788abfd91c924d915175b32f3c453eba9ede4be"
 dependencies = [
  "data-encoding",
  "thiserror",
@@ -174,7 +175,7 @@ dependencies = [
 [[package]]
 name = "archivindex-lines"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#527867ddf5b1eaaff23413a0a40da4a62d8e360e"
+source = "git+https://github.com/travisbrown/archivindex#e788abfd91c924d915175b32f3c453eba9ede4be"
 dependencies = [
  "thiserror",
 ]
@@ -182,7 +183,7 @@ dependencies = [
 [[package]]
 name = "archivindex-publication"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#527867ddf5b1eaaff23413a0a40da4a62d8e360e"
+source = "git+https://github.com/travisbrown/archivindex#e788abfd91c924d915175b32f3c453eba9ede4be"
 dependencies = [
  "tempfile",
  "thiserror",
@@ -191,7 +192,7 @@ dependencies = [
 [[package]]
 name = "archivindex-serde"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#527867ddf5b1eaaff23413a0a40da4a62d8e360e"
+source = "git+https://github.com/travisbrown/archivindex#e788abfd91c924d915175b32f3c453eba9ede4be"
 dependencies = [
  "serde",
 ]
@@ -199,7 +200,7 @@ dependencies = [
 [[package]]
 name = "archivindex-surt"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#527867ddf5b1eaaff23413a0a40da4a62d8e360e"
+source = "git+https://github.com/travisbrown/archivindex#e788abfd91c924d915175b32f3c453eba9ede4be"
 dependencies = [
  "bounded-static",
  "thiserror",
@@ -272,7 +273,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml",
- "zstd 0.14.2",
+ "zstd 0.14.3",
 ]
 
 [[package]]
@@ -296,13 +297,13 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
- "zstd 0.14.2",
+ "zstd 0.14.3",
 ]
 
 [[package]]
 name = "archivindex-wbm"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-cdx",
  "archivindex-digest",
@@ -323,7 +324,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-cas"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-publication",
  "archivindex-wbm",
@@ -337,7 +338,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-cdx-index"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-wbm",
  "chrono",
@@ -348,7 +349,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-downloader"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-publication",
  "archivindex-wbm",
@@ -368,7 +369,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-invalid-log"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-wbm",
  "bounded-static",
@@ -380,7 +381,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-lines",
  "archivindex-serde",
@@ -396,7 +397,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json-gzip"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-wbm-json",
  "flate2",
@@ -409,7 +410,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json-processing"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-lines",
  "archivindex-publication",
@@ -428,13 +429,13 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "toml",
- "zstd 0.14.2",
+ "zstd 0.14.3",
 ]
 
 [[package]]
 name = "archivindex-wbm-test-data"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#338fbe181dddc90a15331f7949bd437b7dbafaaa"
+source = "git+https://github.com/travisbrown/archivindex-wbm#dae2dc8ec31a02336f96459880be6f908a10eb9c"
 dependencies = [
  "archivindex-wbm",
  "archivindex-wbm-cas",
@@ -971,8 +972,8 @@ dependencies = [
  "compression-core",
  "flate2",
  "memchr",
- "zstd 0.14.2",
- "zstd-safe 8.1.0",
+ "zstd 0.14.3",
+ "zstd-safe 8.2.0",
 ]
 
 [[package]]
@@ -1265,7 +1266,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2416,7 +2417,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2666,7 +2667,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2723,7 +2724,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3094,10 +3095,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3179,9 +3180,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "tokio"
-version = "1.53.2"
+version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
  "bytes",
  "libc",
@@ -3674,7 +3675,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4082,11 +4083,11 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "057cfd910cfac363a0ada849592624b4c9ff2e10bef504c3433810d78ed96f93"
+checksum = "db3ae9bf90af6e40197bef767eeefc46ad6397420fe873830bd85e5fbbfb3c70"
 dependencies = [
- "zstd-safe 8.1.0",
+ "zstd-safe 8.2.0",
 ]
 
 [[package]]
@@ -4100,18 +4101,18 @@ dependencies = [
 
 [[package]]
 name = "zstd-safe"
-version = "8.1.0"
+version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdd44c6a7284e91f3717755b24315a302edd9153a01f753c3cba3d765e8eafac"
+checksum = "ded520f16b29e1a9b771c722221b2b0a0398c2316d9bb3c42b458a5414d7434b"
 dependencies = [
  "zstd-sys",
 ]
 
 [[package]]
 name = "zstd-sys"
-version = "2.1.1+zstd.1.5.7"
+version = "2.1.2+zstd.1.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aeec9eaf2dffbbd09201e23bd0ffcbaa33bb8e9266a10734fd7ed90a85eca078"
+checksum = "481ada9c543b2323cbb7bbdbb5249177fbf0188ed959ed2c15e4b22421c84ed3"
 dependencies = [
  "cc",
  "pkg-config",
