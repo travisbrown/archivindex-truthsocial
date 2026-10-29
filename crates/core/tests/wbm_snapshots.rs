@@ -10,7 +10,7 @@
 use std::collections::BTreeSet;
 use std::io::Read;
 
-use archivindex_truthsocial::model::StatusContent;
+use archivindex_truthsocial::model::{Account, ResponseBody, StatusContent};
 use flate2::read::GzDecoder;
 
 /// The snapshot directory on disk, used only to detect drift from [`FIXTURES`].
@@ -27,6 +27,7 @@ macro_rules! fixture {
 /// registered here; [`wbm_snapshots_directory_matches_enumeration`] fails if the directory and this
 /// list diverge.
 const FIXTURES: &[(&str, &[u8])] = &[
+    fixture!("55CQJ3OUYSLUBQPUE5INDOJNNTKAJNWD"),
     fixture!("5QIKZOW6KFPXX3Q2UNR4HORDC2IPHFSZ"),
     fixture!("5QSJEP7ZFGQOYB67GRSXLDOUWUIRXU5F"),
     fixture!("66PZYNINJYRI2POZZWAXIIFIXF6LB5N4"),
@@ -61,6 +62,7 @@ const FIXTURES: &[(&str, &[u8])] = &[
     fixture!("BNS7Q4IX22KYSM35D5AQXOUD4XUOPVQV"),
     fixture!("CMGMD7EO5E4JGZSUOIL2BI22QS5ZYO5R"),
     fixture!("CWYULNN2U3S3N53WOTE2UR4HXJVBOGUD"),
+    fixture!("I4SFFAAYL6HNDNQVB5OH4AYJRLDDDMYD"),
     fixture!("LR2C2SGUH5OHC7IZCTO7R54W3MQTHOKO"),
     fixture!("QQL6T4SOGYGLPQ6DJ6K7QE7GD7MYUYYH"),
     fixture!("SCVL56KVDXXYKYZN77QYTSHUVDEOG2PV"),
@@ -90,6 +92,38 @@ fn wbm_snapshots_parse_as_status_content() {
         if let Err(error) = serde_json::from_str::<StatusContent<'_>>(&json) {
             panic!("{name} failed to parse as StatusContent: {error}");
         }
+    }
+}
+
+#[test]
+fn placeholder_accounts_preserve_null_verification() {
+    let fixtures: &[(&str, &[u8])] = &[
+        fixture!("I4SFFAAYL6HNDNQVB5OH4AYJRLDDDMYD"),
+        fixture!("55CQJ3OUYSLUBQPUE5INDOJNNTKAJNWD"),
+    ];
+    for &(name, bytes) in fixtures {
+        let json = decode(bytes);
+        let ResponseBody::Statuses(StatusContent::Multiple(statuses)) =
+            serde_json::from_str(&json).expect("snapshot parses as a response body")
+        else {
+            panic!("{name}: expected a status array");
+        };
+        assert_eq!(statuses.len(), 20);
+        let status = statuses
+            .iter()
+            .find(|status| status.id == 111_742_770_240_005_736)
+            .expect("status replying to a placeholder account");
+        assert_eq!(status.account.verified, Some(false));
+
+        let account = &status.in_reply_to.as_ref().expect("embedded reply").account;
+        assert_eq!(account.id, 1);
+        assert_eq!(account.verified, None);
+
+        let serialized = serde_json::to_value(account).expect("account serializes");
+        assert_eq!(serialized.get("verified"), Some(&serde_json::Value::Null));
+        let reparsed: Account<'_> =
+            serde_json::from_value(serialized).expect("serialized account reparses");
+        assert_eq!(&reparsed, account);
     }
 }
 

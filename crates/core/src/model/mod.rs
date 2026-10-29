@@ -431,10 +431,6 @@ pub enum Visibility {
 }
 
 /// A Truth Social user account.
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "the fields mirror the API's account object"
-)]
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Account<'a> {
@@ -501,8 +497,8 @@ pub struct Account<'a> {
     #[serde(default, with = "either::serde_untagged_optional")]
     pub last_status_at: Option<Either<NaiveDate, DateTime<Utc>>>,
 
-    /// Whether this account is verified (Truth Social specific).
-    pub verified: bool,
+    /// Whether this account is verified (Truth Social specific), or `None` when unavailable.
+    pub verified: Option<bool>,
 
     /// Location string (Truth Social specific).
     pub location: Cow<'a, str>,
@@ -1276,7 +1272,7 @@ mod tests {
         let reblog = status.reblog.as_ref().expect("Expected reblog");
         assert_eq!(reblog.id, 107957941707714512);
         assert_eq!(reblog.account.username, "DineshDSouza");
-        assert!(reblog.account.verified);
+        assert_eq!(reblog.account.verified, Some(true));
 
         // Card on the reblogged status.
         let card = reblog.card.as_ref().expect("Expected card");
@@ -1418,7 +1414,7 @@ mod tests {
         // Verify top-level status
         assert_eq!(status.id, 107838474127241768);
         assert_eq!(status.account.username, "trumpcash47");
-        assert!(status.account.verified);
+        assert_eq!(status.account.verified, Some(true));
 
         // Verify `in_reply_to` has a suspended account
         let reply = status.in_reply_to.as_ref().expect("Expected in_reply_to");
