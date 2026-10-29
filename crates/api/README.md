@@ -10,6 +10,13 @@ For browser-assisted setup, run `cargo run -p archivindex-truthsocial-api-cli --
 workspace. Load the saved session with `Config::load` and apply it with `ClientBuilder::config`.
 Setup captures a bearer token when it can find one; otherwise, supply a token or call `login`.
 
+## Dependency patches
+
+The workspace pins upstream `wreq-util` to include unreleased Zstandard dependency fixes, together
+with the matching `wreq` and TLS revisions. Applications depending on this crate must copy the
+`[patch.crates-io]` entries from the [workspace manifest](../../Cargo.toml) into their own root
+manifest. Cargo does not inherit patches from dependencies.
+
 ## License
 
 Licensed under the [GNU Affero General Public License, version 3 only][agpl-3.0].

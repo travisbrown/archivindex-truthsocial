@@ -38,7 +38,7 @@ flate2 = "1"
 futures = "0.3"
 log = "0.4"
 rand = "0.10"
-rusqlite = "0.40"
+rusqlite = "0.41"
 serde = { version = "1", features = ["derive"] }
 serde-field-attributes = "0.7"
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -55,6 +55,15 @@ wiremock = "0.6"
 wreq = { version = "0.16", features = ["gzip", "brotli", "zstd", "deflate", "form", "query"] }
 wreq-util = "0.2"
 zstd = "0.14"
+
+# Use upstream's zstd fixes and matching TLS APIs until they are released.
+# Consuming workspaces must repeat these patches; see crates/api/README.md.
+[patch.crates-io]
+wreq = { git = "https://github.com/0x676e67/wreq", rev = "d9ef3083565504635eb0a09eaac794c3cdb0fc0e" }
+wreq-util = { git = "https://github.com/0x676e67/wreq-util", rev = "4d21e3b65d6846187e02802172073438944e6399" }
+btls = { git = "https://github.com/0x676e67/btls", rev = "ada9bd9e2eb85ac756975004ae2aa8a9126692ab" }
+btls-sys = { git = "https://github.com/0x676e67/btls", rev = "ada9bd9e2eb85ac756975004ae2aa8a9126692ab" }
+tokio-btls = { git = "https://github.com/0x676e67/btls", rev = "ada9bd9e2eb85ac756975004ae2aa8a9126692ab" }
 
 [workspace.lints.rust]
 missing_docs = "deny"

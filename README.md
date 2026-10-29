@@ -40,7 +40,7 @@ CI checks the workspace configuration with `cargo archivindex-build check`. Inst
 with:
 
 ```console
-cargo install --locked --git https://github.com/travisbrown/archivindex --rev 527867ddf5b1eaaff23413a0a40da4a62d8e360e cargo-archivindex-build
+cargo install --locked --git https://github.com/travisbrown/archivindex --rev 8e94d61c4b8409f9f70aa3b5164f89789665e0c2 cargo-archivindex-build
 ```
 
 Run `cargo archivindex-build sync` to apply shared workspace and formatter settings, then
