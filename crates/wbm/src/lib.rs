@@ -13,7 +13,8 @@ use archivindex_truthsocial::model::{Status, StatusContent};
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json::context::Context;
 use archivindex_wbm_json::exact::ExactSnapshot;
-use bounded_static::IntoBoundedStatic;
+use archivindex_wbm_json_processing::io::zst;
+use archivindex_wbm_json_processing::process::merge::{self, Collision, SourceLine};
 use either::Either;
 
 pub mod cdx;
@@ -110,42 +111,43 @@ pub fn read_statuses<P: AsRef<Path>>(
 /// An error encountered while merging two compact WTJ snapshot files.
 #[derive(Debug, thiserror::Error)]
 pub enum MergeError {
-    /// An input file could not be opened, decompressed, or read.
-    #[error("failed to read {}", .path.display())]
-    Read {
-        /// The file that could not be read.
+    /// An input file could not be opened.
+    #[error("failed to open {}", .path.display())]
+    Open {
+        /// The file that could not be opened.
         path: PathBuf,
         /// The underlying I/O error.
         #[source]
         source: std::io::Error,
     },
-    /// A line of an input file could not be parsed as a compact snapshot.
-    #[error("failed to parse snapshot on line {line} of {}", .path.display())]
+    /// An input could not be read, is not strictly sorted by digest, or has a line with no digest.
+    #[error(transparent)]
+    Input(#[from] merge::Error),
+    /// A line carries a digest but could not be parsed as a compact snapshot.
+    #[error("failed to parse the snapshot with digest {digest}")]
     Parse {
-        /// The file containing the bad line.
-        path: PathBuf,
-        /// The 1-based line number that failed to parse.
-        line: usize,
+        /// The digest the line carries.
+        digest: Sha1Digest,
         /// The underlying parse error.
         #[source]
         source: archivindex_wbm_json::Error,
     },
-    /// An input file is not sorted by digest, which streaming merge requires.
-    #[error("{} is not sorted by digest (line {line})", .path.display())]
-    NotSorted {
-        /// The file that is out of order.
-        path: PathBuf,
-        /// The 1-based line number whose digest is smaller than the preceding one.
-        line: usize,
-    },
     /// The merged output could not be written.
     #[error("failed to write merged output")]
     Write(#[source] std::io::Error),
-    /// Two rows share a digest but differ in some field (a hash collision or inconsistent data).
-    #[error("digest collision: multiple differing rows share digest {digest}")]
+    /// Two rows share a digest but disagree about the captured bytes, which means that at least one
+    /// of them is corrupt (or that this is a real SHA-1 collision).
+    #[error(
+        "digest collision: rows for {digest} differ in content or format \
+         (line {first_line} of the first input, line {second_line} of the second)"
+    )]
     Collision {
         /// The digest shared by the conflicting rows.
         digest: Sha1Digest,
+        /// The one-based line number of the row in the first input.
+        first_line: usize,
+        /// The one-based line number of the row in the second input.
+        second_line: usize,
     },
 }
 
@@ -154,164 +156,113 @@ pub enum MergeError {
 pub struct MergeSummary {
     /// Total rows read from both input files.
     pub read: usize,
-    /// Duplicate rows dropped (identical digest and contents).
+    /// Rows dropped because the other input had a row for the same digest.
     pub duplicates: usize,
+    /// How many of the `duplicates` differed from the row that was kept in capture metadata.
+    pub metadata_conflicts: usize,
     /// Distinct rows written to the output.
     pub written: usize,
 }
 
 /// Merges two compact WTJ snapshot files into `writer`, ordered by SHA-1 digest byte order.
 ///
-/// Both inputs must be zstd-compressed and sorted by digest bytes. Blank lines are skipped.
-/// The merge holds one pending snapshot per input and one representative of the current digest.
-/// Rows with the same digest and identical fields are collapsed into one and logged at
-/// `warn` level. Rows that share a digest but differ in any field are treated as a collision and
-/// abort the merge with [`MergeError::Collision`].
+/// Both inputs must be zstd-compressed and strictly sorted by digest bytes, with no blank lines.
+/// Each digest is written once. Lines are copied verbatim, so the digests in the output remain
+/// valid, though the merge does not itself verify them.
 ///
-/// Content bytes are preserved, so the digests in the output remain valid, though the merge does
-/// not itself verify them. Output is uncompressed JSON, one snapshot per line. An error may leave
-/// partial output; the caller is responsible for flushing or finalizing `writer`.
+/// A digest identifies captured bytes rather than a capture, so two inputs can hold different rows
+/// for the same digest. If the rows differ only in capture metadata (`timestamp`, `url`, or
+/// `expected_digest`), one row is kept whole and a warning is logged: a row with a timestamp beats
+/// one without, an earlier timestamp beats a later one, and among equal timestamps the shorter line
+/// wins. If they differ in content or format, the merge aborts with [`MergeError::Collision`],
+/// since keeping either row could discard the real capture.
+///
+/// Output is uncompressed JSON, one snapshot per line. An error may leave partial output; the
+/// caller is responsible for flushing or finalizing `writer`.
 ///
 /// # Errors
 ///
-/// [`MergeError::Read`] / [`MergeError::Parse`] for input problems, [`MergeError::NotSorted`] if an
-/// input is not in ascending digest order, [`MergeError::Write`] for output problems, and
-/// [`MergeError::Collision`] when two rows share a digest but differ.
+/// [`MergeError::Open`] / [`MergeError::Input`] / [`MergeError::Parse`] for input problems,
+/// [`MergeError::Write`] for output problems, and [`MergeError::Collision`] when two rows disagree
+/// about the captured bytes.
 pub fn merge_compact<W: Write>(
     first: &Path,
     second: &Path,
     mut writer: W,
 ) -> Result<MergeSummary, MergeError> {
-    // The context drives serialization: it omits a `closing_whitespace` / `url` field that matches
-    // the WTJ default or the inferred URL.
-    let context = validation_context();
-
-    let mut first = SnapshotLines::open(first)?;
-    let mut second = SnapshotLines::open(second)?;
+    let lines = |path: &Path| {
+        zst::reader(path)
+            .map(BufRead::lines)
+            .map_err(|source| MergeError::Open {
+                path: path.to_path_buf(),
+                source,
+            })
+    };
     let mut summary = MergeSummary::default();
 
-    loop {
-        // The next digest to emit is the smaller of the two streams' heads (both ascending).
-        let digest = match (first.peek_digest()?, second.peek_digest()?) {
-            (None, None) => break,
-            (Some(first), Some(second)) => first.min(second),
-            (Some(digest), None) | (None, Some(digest)) => digest,
+    for item in merge::merge(lines(first)?, lines(second)?) {
+        let (digest, source_line) = item?;
+
+        let line: &str = match &source_line {
+            SourceLine::First(line) | SourceLine::Second(line) => line,
+            SourceLine::Match(line) => {
+                summary.duplicates += 1;
+                log::warn!("Dropped a duplicate row for digest {digest}");
+                line
+            }
+            SourceLine::Collision(collision) => {
+                let line = resolve_collision(collision)?;
+                summary.duplicates += 1;
+                summary.metadata_conflicts += 1;
+                log::warn!("Dropped a row with differing capture metadata for digest {digest}");
+                line
+            }
         };
 
-        // Drain every row sharing this digest from both streams (equal digests are consecutive in a
-        // sorted file), keeping only one representative in memory.
-        let mut representative: Option<CompactSnapshot<'static>> = None;
-        let mut group = 0usize;
-        for stream in [&mut first, &mut second] {
-            while stream.peek_digest()? == Some(digest) {
-                if let Some(snapshot) = stream.take()? {
-                    group += 1;
-                    match &representative {
-                        None => representative = Some(snapshot),
-                        // Same digest but a differing row is a collision.
-                        Some(rep) if *rep != snapshot => {
-                            return Err(MergeError::Collision { digest });
-                        }
-                        Some(_) => {}
-                    }
-                }
-            }
-        }
-
-        // `representative` is set whenever the digest matched a row (i.e. always, since it came
-        // from one of the streams).
-        if let Some(representative) = representative {
-            let duplicates = group - 1;
-            if duplicates > 0 {
-                summary.duplicates += duplicates;
-                log::warn!("Dropped {duplicates} duplicate row(s) for digest {digest}");
-            }
-
-            writeln!(writer, "{}", representative.display(&context)).map_err(MergeError::Write)?;
-            summary.read += group;
-            summary.written += 1;
-        }
+        parse_row(digest, line)?;
+        writeln!(writer, "{line}").map_err(MergeError::Write)?;
+        summary.written += 1;
     }
+
+    summary.read = summary.written + summary.duplicates;
 
     Ok(summary)
 }
 
-/// A streaming, peekable reader over a zstd-compressed compact file that parses one snapshot at a
-/// time and verifies the file is sorted by digest (failing with [`MergeError::NotSorted`]
-/// otherwise).
-struct SnapshotLines {
-    lines: std::io::Lines<Box<dyn BufRead>>,
-    path: PathBuf,
-    line: usize,
-    last_digest: Option<Sha1Digest>,
-    peeked: Option<CompactSnapshot<'static>>,
+/// Selects which of two differing rows with the same digest to keep, in the order documented on
+/// [`merge_compact`].
+///
+/// Rows are never combined, so the kept metadata always describes a single capture. The first input
+/// breaks any tie that remains after comparing timestamps and line lengths.
+fn resolve_collision(collision: &Collision) -> Result<&str, MergeError> {
+    let digest = collision.digest;
+    let first = parse_row(digest, &collision.first_value)?;
+    let second = parse_row(digest, &collision.second_value)?;
+
+    if first.content != second.content || first.format != second.format {
+        Err(MergeError::Collision {
+            digest,
+            first_line: collision.first_line_number,
+            second_line: collision.second_line_number,
+        })
+    } else {
+        let rank = |row: &CompactSnapshot<'_>, line: &str| {
+            (row.timestamp.is_none(), row.timestamp, line.len())
+        };
+
+        Ok(
+            if rank(&second, &collision.second_value) < rank(&first, &collision.first_value) {
+                &collision.second_value
+            } else {
+                &collision.first_value
+            },
+        )
+    }
 }
 
-impl SnapshotLines {
-    fn open(path: &Path) -> Result<Self, MergeError> {
-        let read = |source| MergeError::Read {
-            path: path.to_path_buf(),
-            source,
-        };
-        let decoder = zstd::Decoder::new(File::open(path).map_err(read)?).map_err(read)?;
-        let reader: Box<dyn BufRead> = Box::new(BufReader::new(decoder));
-
-        Ok(Self {
-            lines: reader.lines(),
-            path: path.to_path_buf(),
-            line: 0,
-            last_digest: None,
-            peeked: None,
-        })
-    }
-
-    /// Ensures `peeked` holds the next snapshot (or stays `None` at end of file), verifying that
-    /// each line's digest is not smaller than the previous one.
-    fn fill(&mut self) -> Result<(), MergeError> {
-        while self.peeked.is_none() {
-            let Some(line) = self.lines.next() else {
-                return Ok(());
-            };
-            let line = line.map_err(|source| MergeError::Read {
-                path: self.path.clone(),
-                source,
-            })?;
-            self.line += 1;
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            let snapshot = CompactSnapshot::parse(&line)
-                .map_err(|source| MergeError::Parse {
-                    path: self.path.clone(),
-                    line: self.line,
-                    source,
-                })?
-                .into_static();
-
-            if self.last_digest.is_some_and(|last| snapshot.digest < last) {
-                return Err(MergeError::NotSorted {
-                    path: self.path.clone(),
-                    line: self.line,
-                });
-            }
-            self.last_digest = Some(snapshot.digest);
-            self.peeked = Some(snapshot);
-        }
-        Ok(())
-    }
-
-    /// The digest of the next snapshot, or `None` at end of file.
-    fn peek_digest(&mut self) -> Result<Option<Sha1Digest>, MergeError> {
-        self.fill()?;
-        Ok(self.peeked.as_ref().map(|snapshot| snapshot.digest))
-    }
-
-    /// Consumes and returns the next snapshot, or `None` at end of file.
-    fn take(&mut self) -> Result<Option<CompactSnapshot<'static>>, MergeError> {
-        self.fill()?;
-        Ok(self.peeked.take())
-    }
+/// Parses a line that carries `digest` as a compact snapshot.
+fn parse_row(digest: Sha1Digest, line: &str) -> Result<CompactSnapshot<'_>, MergeError> {
+    CompactSnapshot::parse(line).map_err(|source| MergeError::Parse { digest, source })
 }
 
 #[cfg(test)]
@@ -550,9 +501,11 @@ mod tests {
         assert_eq!(summary.written, n);
         assert_eq!(summary.duplicates, n);
         assert_eq!(summary.read, summary.written + summary.duplicates);
+        assert_eq!(summary.metadata_conflicts, 0);
 
         // The output is itself a valid compact file whose digests ascend.
         let text = std::str::from_utf8(&output).expect("utf-8 output");
+        assert_eq!(text.lines().collect::<Vec<_>>(), refs);
         let mut previous: Option<Sha1Digest> = None;
         let mut count = 0;
         for line in text.lines() {
@@ -566,22 +519,109 @@ mod tests {
         assert_eq!(count, n);
     }
 
-    /// Two rows that share a digest but differ in content are a collision.
+    /// Two rows that share a digest but differ in content or format are a collision, even when
+    /// their metadata would otherwise select one of them. Keeping either could lose the real
+    /// capture.
     #[test]
     fn merge_detects_collision() {
-        let first =
-            compact_file(&[r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":1}}"#]);
-        let second =
-            compact_file(&[r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":2}}"#]);
+        for (first, second) in [
+            (
+                r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":1}}"#,
+                r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":2}}"#,
+            ),
+            (
+                r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","timestamp":"20220101000000","content":{"x":1}}"#,
+                r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":2}}"#,
+            ),
+            (
+                r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":1}}"#,
+                r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","format":{"type":"gzip"},"content":{"x":1}}"#,
+            ),
+        ] {
+            let first = compact_file(&[first]);
+            let second = compact_file(&[second]);
 
-        let mut output = Vec::new();
-        let result = merge_compact(first.path(), second.path(), &mut output);
+            let mut output = Vec::new();
+            let result = merge_compact(first.path(), second.path(), &mut output);
 
-        assert!(matches!(result, Err(MergeError::Collision { .. })));
+            assert!(
+                matches!(
+                    result,
+                    Err(MergeError::Collision {
+                        first_line: 1,
+                        second_line: 1,
+                        ..
+                    })
+                ),
+                "expected Collision, got {result:?}"
+            );
+        }
     }
 
-    /// A file whose digests are not ascending is rejected with [`MergeError::NotSorted`] rather
-    /// than silently mis-merging (the streaming merge requires sorted input).
+    /// The same bytes captured twice, or a row seen before and after enhancement, is the ordinary
+    /// case when merging independently built files, not an error. The surviving row must not
+    /// depend on the order of the inputs.
+    #[test]
+    fn merge_resolves_metadata_differences() {
+        let earlier = r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","timestamp":"20220101000000","content":{"x":1}}"#;
+        let later = r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","timestamp":"20230202000000","content":{"x":1}}"#;
+        let unenhanced = r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":1}}"#;
+        let with_expected_digest = r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","expected_digest":"BAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","timestamp":"20220101000000","content":{"x":1}}"#;
+
+        for (kept, dropped) in [
+            (earlier, later),
+            (later, unenhanced),
+            (earlier, with_expected_digest),
+        ] {
+            for (first, second) in [(kept, dropped), (dropped, kept)] {
+                let first = compact_file(&[first]);
+                let second = compact_file(&[second]);
+
+                let mut output = Vec::new();
+                let summary = merge_compact(first.path(), second.path(), &mut output)
+                    .expect("merge succeeds");
+
+                assert_eq!(
+                    summary,
+                    MergeSummary {
+                        read: 2,
+                        duplicates: 1,
+                        metadata_conflicts: 1,
+                        written: 1,
+                    }
+                );
+                assert_eq!(
+                    std::str::from_utf8(&output).expect("utf-8 output"),
+                    format!("{kept}\n")
+                );
+            }
+        }
+    }
+
+    /// A line whose digest prefix is intact but whose remainder is not a snapshot must not reach
+    /// the output, whether or not the other input has a row for that digest.
+    #[test]
+    fn merge_rejects_malformed_rows() {
+        let malformed = r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":1"#;
+        let valid = r#"{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{"x":1}}"#;
+
+        for other in [vec![], vec![valid]] {
+            let first = compact_file(&[malformed]);
+            let second = compact_file(&other);
+
+            let mut output = Vec::new();
+            let result = merge_compact(first.path(), second.path(), &mut output);
+
+            assert!(
+                matches!(result, Err(MergeError::Parse { .. })),
+                "expected Parse, got {result:?}"
+            );
+            assert_eq!(output, [] as [u8; 0]);
+        }
+    }
+
+    /// A file whose digests are not ascending is rejected rather than silently mis-merged (the
+    /// streaming merge requires sorted input).
     #[test]
     fn merge_detects_unsorted_input() {
         // `BAAA…` sorts after `AAAA…` by digest bytes, so this file is descending.
@@ -596,8 +636,15 @@ mod tests {
         let result = merge_compact(unsorted.path(), sorted.path(), &mut output);
 
         assert!(
-            matches!(result, Err(MergeError::NotSorted { line: 2, .. })),
-            "expected NotSorted, got {result:?}"
+            matches!(
+                result,
+                Err(MergeError::Input(merge::Error::Order {
+                    side: merge::Side::First,
+                    line_number: 2,
+                    ..
+                }))
+            ),
+            "expected an ordering error, got {result:?}"
         );
     }
 }

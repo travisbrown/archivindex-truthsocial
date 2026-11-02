@@ -6,8 +6,8 @@ shared types from `archivindex-truthsocial`.
 `validation_context` configures snapshot validation and gzip reproduction for Truth Social
 responses. `read_statuses` streams statuses from zstd-compressed compact snapshot files, including
 responses containing arrays of statuses. `merge_compact` merges two compact files in digest order,
-removes duplicates, and rejects digest collisions or unsorted input. The `cdx` module reads
-directories of CDX entry files.
+keeps one row per digest, and rejects unsorted input or rows that disagree about a digest's content.
+The `cdx` module reads directories of CDX entry files.
 
 ## License
 

@@ -559,8 +559,9 @@ fn reservoir_sample<T, E, I: Iterator<Item = Result<T, E>>>(
 /// Merges two compact WTJ snapshot files and writes the result, ordered by SHA-1 digest, as
 /// newline-delimited JSON to stdout.
 ///
-/// Duplicate rows are logged and dropped; rows that share a digest but differ abort the merge. The
-/// output is uncompressed so it can be inspected or piped (e.g. into `zstd`).
+/// Rows that share a digest are logged and reduced to one row, unless they differ in content or
+/// format, which aborts the merge. The output is uncompressed so it can be inspected or piped (e.g.
+/// into `zstd`).
 fn merge_compact_files(first: &Path, second: &Path) -> Result<(), Error> {
     let stdout = std::io::stdout();
     let mut writer = BufWriter::new(stdout.lock());
@@ -569,10 +570,11 @@ fn merge_compact_files(first: &Path, second: &Path) -> Result<(), Error> {
     writer.flush()?;
 
     log::info!(
-        "Merged {} rows: wrote {} unique, dropped {} duplicates",
+        "Merged {} rows: wrote {} unique, dropped {} duplicates ({} with differing metadata)",
         summary.read,
         summary.written,
-        summary.duplicates
+        summary.duplicates,
+        summary.metadata_conflicts
     );
 
     Ok(())

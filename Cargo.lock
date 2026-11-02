@@ -247,6 +247,7 @@ dependencies = [
  "archivindex-wbm",
  "archivindex-wbm-json",
  "archivindex-wbm-json-gzip",
+ "archivindex-wbm-json-processing",
  "archivindex-wbm-test-data",
  "bounded-static",
  "either",

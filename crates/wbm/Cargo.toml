@@ -25,6 +25,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 archivindex-wbm.workspace = true
 archivindex-wbm-json.workspace = true
 archivindex-wbm-json-gzip.workspace = true
+archivindex-wbm-json-processing.workspace = true
 bounded-static.workspace = true
 either.workspace = true
 log.workspace = true
