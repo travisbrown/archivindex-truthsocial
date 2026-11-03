@@ -7,6 +7,4 @@
 //! Machine archive snapshots; that integration lives in the separate `archivindex-truthsocial-wbm`
 //! crate.
 pub mod model;
-
-/// Classification of Truth Social API URLs.
 pub mod url;

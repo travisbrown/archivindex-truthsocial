@@ -88,7 +88,6 @@ fn decode(bytes: &[u8]) -> String {
 fn wbm_snapshots_parse_as_status_content() {
     for &(name, bytes) in FIXTURES {
         let json = decode(bytes);
-        // Deserialize the decoded snapshot content.
         if let Err(error) = serde_json::from_str::<StatusContent<'_>>(&json) {
             panic!("{name} failed to parse as StatusContent: {error}");
         }

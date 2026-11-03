@@ -97,10 +97,11 @@ pub struct Status<'a> {
     /// Whether this is a sponsored/promoted status.
     pub sponsored: Option<bool>,
 
-    // These three counts use `optional_usize`: the API returns `-1` as a sentinel when a count is
-    // withheld (e.g. for some nested/reblogged statuses) rather than omitting the field, and that
-    // sentinel deserializes to `None`.
-    /// Number of replies to this status (`None` if the API withheld the count).
+    /// Number of replies to this status.
+    ///
+    /// `None` if the API withheld the count, which it signals by sending `-1` rather than omitting
+    /// the field (e.g. for some nested or reblogged statuses). The same applies to
+    /// [`reblogs_count`](Self::reblogs_count) and [`favourites_count`](Self::favourites_count).
     #[serde(with = "optional_usize")]
     pub replies_count: Option<usize>,
 
@@ -316,9 +317,8 @@ impl<'de, 'a> serde::Deserialize<'de> for ResponseBody<'a> {
                 let value = <serde_json::Value as serde::Deserialize>::deserialize(
                     serde::de::value::MapAccessDeserializer::new(map),
                 )?;
-                // Deserializing from the buffered `Value` produces owned data, so the concrete
-                // `serde_json::Error` it can raise is remapped onto the driving deserializer's
-                // error type.
+                // Deserializing from the buffered `Value` raises a `serde_json::Error`, which is
+                // remapped onto the driving deserializer's error type.
                 if value.get("username").is_some() {
                     <Account<'a> as serde::Deserialize>::deserialize(value)
                         .map(|account| ResponseBody::Account(Box::new(account)))
@@ -764,9 +764,9 @@ pub struct Mention<'a> {
 
 /// A hashtag used in a status.
 ///
-/// The [`trending`](Self::trending) fields appear inline in the JSON object. They must be all
-/// present (and not null) or all absent, and as in the rest of the model, unknown keys are
-/// rejected.
+/// The [`trending`](Self::trending) fields appear inline in the JSON object. Either the required
+/// [`TagTrending`] fields are all present and not null, or every trending field is absent. As in
+/// the rest of the model, unknown keys are rejected.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(try_from = "RawTag<'a>")]
 pub struct Tag<'a> {
@@ -800,8 +800,8 @@ pub struct Tag<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recent_statuses_count: Option<u64>,
 
-    /// Extended trending/moderation metadata, present only in the trending/admin tag view (e.g. a
-    /// group's `tags`) and absent from the lightweight tags inlined in a status.
+    /// Extended trending/moderation metadata, present only in the trending/admin tag view and
+    /// absent from the lightweight tags inlined in a status or a group.
     #[serde(flatten)]
     pub trending: Option<TagTrending>,
 }
@@ -903,9 +903,9 @@ impl<'a> TryFrom<RawTag<'a>> for Tag<'a> {
 
 /// The extended trending/moderation fields of a [`Tag`].
 ///
-/// These fields always appear together (in the trending/admin view), so they are grouped into one
-/// struct that is flattened into [`Tag::trending`] behind a single `Option` rather than making each
-/// field individually optional.
+/// These fields appear only in the trending/admin view, so they are grouped behind the single
+/// `Option` in [`Tag::trending`]. The non-`Option` fields are always present in that view, and the
+/// `Option` fields may be absent or null. A [`Tag`] serializes these fields inline.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TagTrending {
@@ -946,8 +946,8 @@ pub struct TagTrending {
 
 /// A single day's usage bucket in a [`Tag`]'s [`history`](Tag::history).
 ///
-/// The API sends the counts as decimal strings (Mastodon convention), so `uses` and `accounts` are
-/// decoded through `integer_str` while `days_ago` arrives as a plain number.
+/// The API sends `uses` and `accounts` as decimal strings (Mastodon convention), and `days_ago` as
+/// a plain number.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TagHistory<'a> {
@@ -1796,7 +1796,7 @@ mod tests {
                 GroupMembershipRole::User,
             ]
         );
-        // Membership ids (`integer_str`-decoded) are distinct from the members' account ids.
+        // Membership IDs are distinct from the members' account IDs.
         assert_eq!(
             members.iter().map(|m| m.id).collect::<Vec<_>>(),
             [1001, 1002, 1003]
