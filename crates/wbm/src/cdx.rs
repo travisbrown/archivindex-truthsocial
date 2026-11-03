@@ -45,7 +45,7 @@ pub enum CdxError {
     },
 }
 
-/// Reads every CDX file in `directory` and returns an iterator over the contained [`Item`]s.
+/// Read every CDX file in `directory` and return an iterator over the contained [`Item`]s.
 ///
 /// Each file is a JSON array of entries (the archivindex [`ItemList`] representation), plain
 /// (`*.json`) or zstd-compressed (`*.json.zst`); the reader is chosen from the extension and files
@@ -93,7 +93,7 @@ pub fn read_cdx_entries<P: AsRef<Path>>(
 }
 
 /// Whether `path` is a CDX file this reader handles: a plain (`*.json`) or zstd-compressed
-/// (`*.json.zst`) JSON file. The lowercase extensions are matched exactly, by design.
+/// (`*.json.zst`) JSON file.
 #[expect(
     clippy::case_sensitive_file_extension_comparisons,
     reason = "the lowercase extensions are matched exactly, by design"
@@ -111,7 +111,7 @@ fn is_zstd(path: &Path) -> bool {
         .is_some_and(|name| name.ends_with(".json.zst"))
 }
 
-/// Reads a single file and parses it as an [`ItemList`], returning its entries as owned values.
+/// Read a single file and parse it as an [`ItemList`], returning its entries as owned values.
 ///
 /// The file is read plainly or zstd-decompressed depending on its extension (see [`is_zstd`]). The
 /// entries borrow from the decoded contents while parsing, then are detached to `'static` so they
@@ -157,7 +157,6 @@ mod tests {
         );
         for index in 0..count {
             let id = 115_400_000_000_000_000_u64 + index as u64;
-            // `write!` to the buffer avoids the extra allocation of `format!` per row.
             write!(
                 document,
                 ",\n[\"com,truthsocial)/api/v1/statuses/{id}\",\"20260427185815\",\

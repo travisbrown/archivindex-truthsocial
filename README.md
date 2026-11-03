@@ -69,7 +69,7 @@ cargo deny --workspace check
 Ordinary test runs use local fixtures and loopback servers. Tests that download snapshots from the
 Wayback Machine are ignored by default, even when they can reuse a local cache. Run them explicitly
 with `cargo test --locked --workspace --all-features -- --ignored`. These tests may contact the
-archive, and report unavailable snapshots as skipped through their existing warning messages.
+archive. A test whose snapshot is unavailable returns early and passes.
 
 ## License
 

@@ -2,7 +2,8 @@
 //!
 //! Each capture is fetched through [`archivindex_wbm_test_data::Cache`] into a gitignored cache, so
 //! the archives never enter the repository. When one is unavailable (no network, or the Wayback
-//! Machine declines to serve it) the cache yields `None` and the test skips instead of failing.
+//! Machine declines to serve it) the cache yields `None`, and the test returns early and passes
+//! instead of failing.
 //!
 //! Each capture must match the SHA-1 digest that names it and deserialize as the expected response
 //! type. A gzip capture is additionally handled through the archivindex gzip codec exactly as
@@ -37,12 +38,8 @@ const ACCOUNT_URL: &str = "https://truthsocial.com/api/v1/accounts/1123792664759
 const ACCOUNT_TIMESTAMP: &str = "20260102183502";
 const ACCOUNT_DIGEST: &str = "3GBVF25NJQGFFS76UPQKM7GEKE2EVORR";
 
-/// Downloads a snapshot and verifies it against the digest that names it, returning its decoded
-/// JSON text. Returns `None` (a skip) when the snapshot is unavailable.
-///
-/// The archived bytes must hash back to `digest`. A gzip archive is additionally round-tripped
-/// through the codec: inferring its parameters guarantees a byte-exact reproduction, so re-encoding
-/// must yield the exact archive bytes. A plain archive is decoded as its UTF-8 bytes.
+/// Download a snapshot and verify it against the digest that names it, returning its decoded
+/// JSON text. Returns `None` when the snapshot is unavailable.
 async fn fetch_verified_content(url: &str, timestamp: &str, digest: &str) -> Option<String> {
     let cache = Cache::new(CACHE_DIRECTORY).expect("Cannot build HTTP client");
     let archive = cache
@@ -85,7 +82,7 @@ async fn fetch_verified_content(url: &str, timestamp: &str, digest: &str) -> Opt
     Some(content)
 }
 
-/// Asserts that `content` (a verified capture) deserializes as a non-empty array of statuses.
+/// Assert that `content` (a verified capture) deserializes as a non-empty array of statuses.
 fn assert_parses_as_statuses_page(content: &str, digest: &str) {
     let ResponseBody::Statuses(StatusContent::Multiple(statuses)) =
         serde_json::from_str(content).expect("the snapshot must parse as a response body")
@@ -98,7 +95,7 @@ fn assert_parses_as_statuses_page(content: &str, digest: &str) {
     );
 }
 
-/// Asserts that `content` (a verified capture) deserializes as a single account object.
+/// Assert that `content` (a verified capture) deserializes as a single account object.
 fn assert_parses_as_account(content: &str, digest: &str) {
     let body = serde_json::from_str::<ResponseBody<'_>>(content)
         .expect("the snapshot must parse as a response body");

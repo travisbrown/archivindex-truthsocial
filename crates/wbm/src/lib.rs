@@ -32,7 +32,7 @@ pub type CompactSnapshot<'a> = ExactSnapshot<'a>;
 /// CEL query). Deserialized into an [`archivindex_wbm_json::context::ContextConfig`].
 const CONTEXT_CONFIG: &str = include_str!("truthsocial.toml");
 
-/// Builds a [`Context`] for reading, validating, and serializing compact WTJ snapshot files.
+/// Build a [`Context`] for reading, validating, and serializing compact WTJ snapshot files.
 ///
 /// This is the library's canonical Truth Social context, defined by the bundled `truthsocial.toml`
 /// (default closing whitespace `['\n']` and the status-URL CEL inference) and extended with the
@@ -70,11 +70,11 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 }
 
-/// Streams Truth Social statuses from a zstd-compressed compact WTJ snapshot file.
+/// Stream Truth Social statuses from a zstd-compressed compact WTJ snapshot file.
 ///
-/// The file is zstd-compressed with one JSON [`WtjSnapshot`] per line, and blank lines are errors.
-/// Each yielded item is one owned [`Status`]; a snapshot whose content is an array of statuses
-/// yields each of them in turn, and a snapshot whose content is an account yields nothing.
+/// Each line holds one JSON snapshot whose content is a [`ResponseBody`], and blank lines are
+/// errors. Each yielded item is one owned [`Status`]; a snapshot whose content is an array of
+/// statuses yields each of them in turn, and a snapshot whose content is an account yields nothing.
 /// Statuses are produced lazily, so the whole file is never held in memory at once.
 ///
 /// # Errors
@@ -159,7 +159,7 @@ pub struct MergeSummary {
     pub written: usize,
 }
 
-/// Merges two compact WTJ snapshot files into `writer`, ordered by SHA-1 digest byte order.
+/// Merge two compact WTJ snapshot files into `writer`, ordered by SHA-1 digest byte order.
 ///
 /// Both inputs must be zstd-compressed and strictly sorted by digest bytes, with no blank lines.
 /// Each digest is written once. Lines are copied verbatim, so the digests in the output remain
@@ -224,7 +224,7 @@ pub fn merge_compact<W: Write>(
     Ok(summary)
 }
 
-/// Selects which of two differing rows with the same digest to keep, in the order documented on
+/// Select which of two differing rows with the same digest to keep, in the order documented on
 /// [`merge_compact`].
 ///
 /// Rows are never combined, so the kept metadata always describes a single capture. The first input
@@ -255,7 +255,7 @@ fn resolve_collision(collision: &Collision) -> Result<&str, MergeError> {
     }
 }
 
-/// Parses a line that carries `digest` as a compact snapshot.
+/// Parse a line that carries `digest` as a compact snapshot.
 fn parse_row(digest: Sha1Digest, line: &str) -> Result<CompactSnapshot<'_>, MergeError> {
     CompactSnapshot::parse(line).map_err(|source| MergeError::Parse { digest, source })
 }
@@ -277,7 +277,7 @@ mod tests {
         "/../core/tests/data/wbm/snapshots"
     );
 
-    /// Decodes a curated snapshot payload to its JSON text, transparently gunzipping when the gzip
+    /// Decode a curated snapshot payload to its JSON text, transparently gunzipping when the gzip
     /// magic bytes are present.
     ///
     /// Decoding routes through the archivindex gzip codec rather than `flate2` directly; the
@@ -518,7 +518,7 @@ mod tests {
         );
     }
 
-    /// Writes the given lines to a fresh zstd-compressed temp file.
+    /// Write the given lines to a fresh zstd-compressed temp file.
     fn compact_file(lines: &[&str]) -> tempfile::NamedTempFile {
         let temp = tempfile::NamedTempFile::new().expect("temp file");
         let mut encoder = zstd::Encoder::new(temp.as_file(), 0).expect("zstd encoder");
