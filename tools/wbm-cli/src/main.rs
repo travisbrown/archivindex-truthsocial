@@ -806,7 +806,7 @@ enum Command {
     /// Pack raw captures into a zstd-compressed NDJSON snapshot file without CDX metadata
     Pack {
         /// Directories of raw data files, each named by the SHA-1 digest of its bytes
-        #[arg(long)]
+        #[arg(long, required = true)]
         data: Vec<PathBuf>,
         /// Path to the SQLite database of known-invalid digests
         #[arg(long)]
