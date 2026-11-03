@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use archivindex_cli_support::{CommandOutcome, Verbosity};
-use archivindex_truthsocial::model::{ResponseBody, StatusContent};
+use archivindex_truthsocial::model::ResponseBody;
 use archivindex_wbm::cdx::item::Item;
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json::format::FormatInfo;
@@ -433,19 +433,29 @@ fn validate_single_file(path: impl AsRef<Path>, verify: bool) -> Result<(), File
 /// Builds an index of the top-level status IDs and snapshot digests contained in a compact WTJ
 /// snapshot file.
 ///
-/// Each line is read through a [`SnapshotReader`] and its content parsed as [`StatusContent`]; only
-/// the (`Copy`) status ID(s) and digest are retained, so the snapshots themselves are not held in
-/// memory. A snapshot whose content is an array of statuses contributes every status ID it
+/// Each line is read through a [`SnapshotReader`] and its content parsed as a [`ResponseBody`];
+/// only the (`Copy`) status ID(s) and digest are retained, so the snapshots themselves are not held
+/// in memory. A snapshot whose content is an array of statuses contributes every status ID it
 /// contains.
+///
+/// Every snapshot contributes its digest, including one that holds no statuses: an account, or
+/// content that does not parse at all (such as Truth Social's "record not found" body), which is
+/// logged.
 fn index_compact(path: &Path) -> Result<(HashSet<u64>, HashSet<Sha1Digest>), Error> {
     let mut ids = HashSet::new();
     let mut digests = HashSet::new();
 
     for snapshot in SnapshotReader::open(path)? {
         let snapshot = snapshot?;
-        let content: StatusContent<'_> = serde_json::from_str(snapshot.content.as_str())?;
-        for status in content.statuses() {
-            ids.insert(status.id);
+        match serde_json::from_str::<ResponseBody<'_>>(snapshot.content.as_str()) {
+            Ok(ResponseBody::Statuses(content)) => {
+                ids.extend(content.statuses().map(|status| status.id));
+            }
+            Ok(ResponseBody::Account(_)) => {}
+            Err(error) => log::warn!(
+                "Snapshot {} holds neither statuses nor an account: {error}",
+                snapshot.digest
+            ),
         }
         digests.insert(snapshot.digest);
     }
@@ -853,5 +863,42 @@ mod tests {
     fn reservoir_sample_propagates_error() {
         let result = reservoir_sample([Ok(1), Err("boom"), Ok(3)].into_iter(), 5);
         assert_eq!(result, Err("boom"));
+    }
+
+    /// Captures that hold no statuses still count as present. They used to abort `missing`, even
+    /// though `validate` accepts an account capture.
+    #[test]
+    fn index_compact_keeps_non_status_digests() {
+        let lines = [
+            (
+                "AAACL3SP57UDUZWUNKYLBS5GRVVO57JF",
+                include_str!(
+                    "../../../crates/core/tests/data/wbm/snapshots/AAACL3SP57UDUZWUNKYLBS5GRVVO57JF"
+                ),
+            ),
+            (
+                "AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC",
+                include_str!("../../../crates/api/tests/data/users/107780257626128497.json"),
+            ),
+            (NOT_FOUND_BODY_DIGEST, r#"{"error":"record not found"}"#),
+        ];
+        let file = tempfile::NamedTempFile::new().expect("temp file");
+        let mut encoder = zstd::Encoder::new(file.as_file(), 0).expect("zstd encoder");
+        for (digest, content) in lines {
+            let content = content.trim_end();
+            writeln!(encoder, r#"{{"digest":"{digest}","content":{content}}}"#).expect("write");
+        }
+        encoder.finish().expect("finish zstd");
+
+        let (ids, digests) = index_compact(file.path()).expect("index compact file");
+
+        assert_eq!(ids, HashSet::from([115_864_791_948_135_518]));
+        assert_eq!(
+            digests,
+            lines
+                .iter()
+                .map(|(digest, _)| digest.parse().expect("valid digest"))
+                .collect()
+        );
     }
 }

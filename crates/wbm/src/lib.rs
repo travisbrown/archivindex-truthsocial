@@ -8,7 +8,7 @@
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
-use archivindex_truthsocial::model::{Status, StatusContent};
+use archivindex_truthsocial::model::{ResponseBody, Status, StatusContent};
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json::context::Context;
 use archivindex_wbm_json::exact::ExactSnapshot;
@@ -65,7 +65,7 @@ pub enum Error {
     /// A line could not be read or decompressed, or does not hold a snapshot.
     #[error(transparent)]
     Read(#[from] archivindex_wbm_json_processing::io::read::Error),
-    /// A snapshot's content could not be parsed as [`StatusContent`].
+    /// A snapshot's content could not be parsed as a [`ResponseBody`].
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }
@@ -74,29 +74,31 @@ pub enum Error {
 ///
 /// The file is zstd-compressed with one JSON [`WtjSnapshot`] per line, and blank lines are errors.
 /// Each yielded item is one owned [`Status`]; a snapshot whose content is an array of statuses
-/// yields each of them in turn. Statuses are produced lazily, so the whole file is never held in
-/// memory at once.
+/// yields each of them in turn, and a snapshot whose content is an account yields nothing.
+/// Statuses are produced lazily, so the whole file is never held in memory at once.
 ///
 /// # Errors
 ///
 /// Returns [`Error::Io`] if the file cannot be opened or the decoder cannot be initialized. Each
 /// iterator item is an [`Error::Read`] for a line that cannot be read or is not a snapshot, or an
-/// [`Error::Json`] for a snapshot whose content fails to deserialize. The iterator ends after a
-/// read or decompression failure, so a caller may skip errors and keep reading.
+/// [`Error::Json`] for a snapshot whose content is neither statuses nor an account (such as Truth
+/// Social's "record not found" body). The iterator ends after a read or decompression failure, so
+/// a caller may skip errors and keep reading.
 pub fn read_statuses<P: AsRef<Path>>(
     path: P,
 ) -> Result<impl Iterator<Item = Result<Status<'static>, Error>>, Error> {
     Ok(SnapshotReader::open(path)?.flat_map(|snapshot| {
-        let content = snapshot.map_err(Error::Read).and_then(|snapshot| {
-            serde_json::from_str::<StatusContent<'static>>(snapshot.content.as_str())
+        let body = snapshot.map_err(Error::Read).and_then(|snapshot| {
+            serde_json::from_str::<ResponseBody<'static>>(snapshot.content.as_str())
                 .map_err(Error::Json)
         });
 
         // Flatten each snapshot's content into its individual statuses (one for a single status,
-        // several for an array), threading any error through as a single item.
-        match content {
-            Ok(content) => Either::Left(content.into_statuses().map(Ok)),
-            Err(error) => Either::Right(std::iter::once(Err(error))),
+        // several for an array, none for an account), threading any error through as a single item.
+        match body {
+            Ok(ResponseBody::Statuses(content)) => Either::Left(content.into_statuses().map(Ok)),
+            Ok(ResponseBody::Account(_)) => Either::Right(None.into_iter()),
+            Err(error) => Either::Right(Some(Err(error)).into_iter()),
         }
     }))
 }
@@ -487,6 +489,32 @@ mod tests {
             matches!(items.last(), Some(Err(Error::Read(_)))),
             "expected a final read error, got {:?}",
             items.last()
+        );
+    }
+
+    /// A compact file may also hold account captures, which carry no statuses and are skipped, and
+    /// error bodies, which are neither statuses nor an account and so are reported.
+    #[test]
+    fn read_statuses_skips_accounts_and_reports_other_content() {
+        let account = include_str!("../../api/tests/data/users/107780257626128497.json").trim_end();
+        let lines = [
+            curated_single_status_lines().swap_remove(0),
+            format!(r#"{{"digest":"AAAA3HVFIBJARGQ4ISEHROP6XWNULWTC","content":{account}}}"#),
+            r#"{"digest":"P5TTLDT2OWSDBLWJ4JZRW26NZ3Q7XVQS","content":{"error":"record not found"}}"#
+                .to_owned(),
+        ];
+        let refs = lines.iter().map(String::as_str).collect::<Vec<_>>();
+
+        let items = read_statuses(compact_file(&refs).path())
+            .expect("open compact file")
+            .collect::<Vec<_>>();
+
+        assert_eq!(items.len(), 2, "unexpected items: {items:?}");
+        assert!(items[0].is_ok(), "expected a status, got {:?}", items[0]);
+        assert!(
+            matches!(items[1], Err(Error::Json(_))),
+            "expected a JSON error, got {:?}",
+            items[1]
         );
     }
 
