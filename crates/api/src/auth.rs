@@ -92,13 +92,3 @@ impl std::fmt::Debug for Credentials {
             .finish()
     }
 }
-
-/// The subset of the `POST /oauth/token` response we consume.
-///
-/// `pub` rather than `pub(crate)`: the enclosing module is private, so this stays crate-internal
-/// regardless, and `pub` avoids the `redundant_pub_crate` lint.
-#[derive(Debug, serde::Deserialize)]
-pub struct TokenResponse {
-    /// The bearer token returned by the OAuth server.
-    pub access_token: String,
-}

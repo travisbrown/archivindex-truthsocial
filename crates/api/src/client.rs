@@ -6,7 +6,7 @@ use archivindex_truthsocial::model::{Account, Status};
 use url::Url;
 use wreq_util::Profile;
 
-use crate::auth::{Credentials, TokenResponse};
+use crate::auth::Credentials;
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::types::{Context, SearchKind, SearchResults, TimelineParams};
@@ -544,6 +544,13 @@ impl ClientBuilder {
             cookie_header,
         })
     }
+}
+
+/// The subset of the `POST /oauth/token` response the client consumes.
+#[derive(serde::Deserialize)]
+struct TokenResponse {
+    /// The bearer token returned by the OAuth server.
+    access_token: String,
 }
 
 #[cfg(test)]
