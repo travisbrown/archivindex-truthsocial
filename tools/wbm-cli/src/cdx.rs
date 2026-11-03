@@ -51,8 +51,8 @@ pub enum Error {
     InvalidTimestamp(String),
 }
 
-/// Reads every CDX entry file in `base`, reduces each Truth Social status capture to a [`Row`], and
-/// returns the rows sorted by `(id, timestamp, digest)` with exact duplicates removed.
+/// Read every CDX entry file in `base`, reduce each Truth Social status capture to a [`Row`], and
+/// return the rows sorted by `(id, timestamp, digest)` with exact duplicates removed.
 ///
 /// The directory is read through [`archivindex_truthsocial_wbm::cdx::read_cdx_entries`], which
 /// streams both plain (`*.json`) and zstd-compressed (`*.json.zst`) files. Entries whose URL is not
@@ -99,8 +99,6 @@ pub fn read_compressed_csv<P: AsRef<Path>>(path: P) -> Result<Vec<Row>, Error> {
         path: path.to_path_buf(),
     })?;
 
-    // Wrap the file in a zstd decoder, then buffer it for efficient reading. The `zstd::Decoder`
-    // streams decompression as the CSV reader pulls data.
     let decoder = zstd::Decoder::new(file).map_err(|error| Error::FileIo {
         error,
         path: path.to_path_buf(),
@@ -122,7 +120,6 @@ pub fn read_compressed_csv<P: AsRef<Path>>(path: P) -> Result<Vec<Row>, Error> {
             .ok_or_else(|| Error::InvalidStatusId("missing URL field".to_string()))?;
         let id = parse_status_id(url)?;
 
-        // `Timestamp` implements `FromStr` for the fourteen-digit Wayback format.
         let timestamp_str = record
             .get(1)
             .ok_or_else(|| Error::InvalidTimestamp("missing timestamp field".to_string()))?;
@@ -130,7 +127,6 @@ pub fn read_compressed_csv<P: AsRef<Path>>(path: P) -> Result<Vec<Row>, Error> {
             .parse()
             .map_err(|_| Error::InvalidTimestamp(timestamp_str.to_string()))?;
 
-        // `Sha1Digest` implements `FromStr` to decode the Base32 digest.
         let digest_str = record
             .get(2)
             .ok_or_else(|| Error::InvalidDigest("missing digest field".to_string()))?;
@@ -148,7 +144,7 @@ pub fn read_compressed_csv<P: AsRef<Path>>(path: P) -> Result<Vec<Row>, Error> {
     Ok(rows)
 }
 
-/// Extracts the status ID from a Truth Social API URL.
+/// Extract the status ID from a Truth Social API URL.
 ///
 /// # Errors
 ///
@@ -181,7 +177,7 @@ impl TryFrom<&Item<'_>> for Row {
     fn try_from(value: &Item<'_>) -> Result<Self, Self::Error> {
         let id = parse_status_id(value.original.as_ref())?;
 
-        // `Digest` is `Valid(Sha1Digest) | Invalid(Cow<str>)`; reject captures with an invalid one.
+        // Reject captures with an invalid digest.
         let digest = value
             .digest
             .map_err(|invalid| Error::InvalidDigest(invalid.to_string()))?;

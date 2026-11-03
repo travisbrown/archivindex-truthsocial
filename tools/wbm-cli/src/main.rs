@@ -214,8 +214,7 @@ fn validate_statuses(path: impl AsRef<Path>, verify: bool) -> Result<CommandOutc
     let mut success_count: u64 = 0;
     let mut error_count: u64 = 0;
 
-    // Read directory entries, collecting into a `Vec` to handle errors upfront and avoid holding
-    // the directory iterator open during processing.
+    // Collect the entries so they can be sorted by creation time, newest first.
     let mut paths = fs::read_dir(path)
         .map_err(|e| Error::ReadDir(path.to_path_buf(), e))?
         .map(|result| {
@@ -269,8 +268,8 @@ fn validate_statuses(path: impl AsRef<Path>, verify: bool) -> Result<CommandOutc
     Ok(CommandOutcome::from_reported_problems(error_count > 0))
 }
 
-/// Validates a compact snapshot file: checks digests, schema, ordering, and metadata consistency
-/// (via archivindex), then validates each snapshot's content against the Truth Social schema.
+/// Validate a compact snapshot file: check digests, schema, ordering, and metadata consistency
+/// (via archivindex), then validate each snapshot's content against the Truth Social schema.
 ///
 /// # Returns
 ///
@@ -280,7 +279,6 @@ fn validate_compact(
     path: impl AsRef<Path>,
     context: &archivindex_wbm_json::context::Context,
 ) -> Result<CommandOutcome, Error> {
-    // First, run the archivindex check (digests, WTJ schema, metadata).
     let check_summary =
         archivindex_wbm_json_processing::process::check::check(path.as_ref(), context)?;
 
@@ -299,7 +297,6 @@ fn validate_compact(
         log::warn!("WTJ validation found problems");
     }
 
-    // Now validate each snapshot's content against the Truth Social schema.
     let content_validation = validate_content(path.as_ref())?;
 
     log::info!(
@@ -316,7 +313,6 @@ fn validate_compact(
         );
     }
 
-    // Output combined results.
     let is_successful =
         check_summary.is_successful() && content_validation.schema_errors.is_empty();
     let combined = serde_json::json!({
@@ -341,7 +337,7 @@ struct ContentValidationSummary {
     schema_errors: Vec<String>,
 }
 
-/// Validates each snapshot's content against the Truth Social [`ResponseBody`] schema.
+/// Validate each snapshot's content against the Truth Social [`ResponseBody`] schema.
 fn validate_content(path: impl AsRef<Path>) -> Result<ContentValidationSummary, Error> {
     let mut total = 0;
     let mut valid = 0;
@@ -386,9 +382,7 @@ fn validate_single_file(path: impl AsRef<Path>, verify: bool) -> Result<(), File
     let bytes = fs::read(path).map_err(FileError::Read)?;
 
     if verify {
-        // The file is the archived byte stream; its digest is the SHA-1 of these raw bytes (never
-        // of the decoded content, which for a gzip capture would differ), Base32-encoded, which is
-        // exactly the filename. So the check needs no decoding.
+        // The digest covers the archived bytes, not the decoded content, so no decoding is needed.
         let expected = path
             .file_name()
             .and_then(|name| name.to_str())
@@ -401,9 +395,6 @@ fn validate_single_file(path: impl AsRef<Path>, verify: bool) -> Result<(), File
     }
 
     let content = if bytes.starts_with(&[0x1f, 0x8b]) {
-        // Require that the archivindex codec can reproduce the archive: a successful inference
-        // guarantees an exact byte-for-byte round-trip, so the decoded content is verifiable and
-        // not merely whatever `flate2` happens to inflate from a capture the codec cannot model.
         GzipParams::infer(&bytes).ok_or(FileError::Irreproducible)?;
         archivindex_wbm_json_gzip::decompress(&bytes).ok_or(FileError::Decode)?
     } else {
@@ -414,13 +405,12 @@ fn validate_single_file(path: impl AsRef<Path>, verify: bool) -> Result<(), File
     Ok(())
 }
 
-/// Builds an index of the top-level status IDs and snapshot digests contained in a compact WTJ
+/// Build an index of the top-level status IDs and snapshot digests contained in a compact WTJ
 /// snapshot file.
 ///
-/// Each line is read through a [`SnapshotReader`] and its content parsed as a [`ResponseBody`];
-/// only the (`Copy`) status ID(s) and digest are retained, so the snapshots themselves are not held
-/// in memory. A snapshot whose content is an array of statuses contributes every status ID it
-/// contains.
+/// Each snapshot's content is parsed as a [`ResponseBody`], and only its status IDs and digest are
+/// retained, so the snapshots themselves are not held in memory. A snapshot whose content is an
+/// array of statuses contributes every status ID it contains.
 ///
 /// Every snapshot contributes its digest, including one that holds no statuses: an account, or
 /// content that does not parse at all (such as Truth Social's "record not found" body), which is
@@ -447,7 +437,7 @@ fn index_compact(path: &Path) -> Result<(HashSet<u64>, HashSet<Sha1Digest>), Err
     Ok((ids, digests))
 }
 
-/// Selects the CDX rows still worth fetching, in reverse input order.
+/// Select the CDX rows still worth fetching, in reverse input order.
 ///
 /// A row with real content is selected when its digest is not in `captured`. A row whose digest is
 /// that of an empty or "record not found" body is selected only when no row for the same status
@@ -474,7 +464,7 @@ fn next_rows<'a>(
     })
 }
 
-/// Prints, as headerless CSV, the CDX entries in `cdx_dir` whose status ID and content digest are
+/// Print, as headerless CSV, the CDX entries in `cdx_dir` whose status ID and content digest are
 /// both absent from `compact`.
 ///
 /// The compact file is indexed once (its top-level status IDs and digests), then every CDX entry is
@@ -493,8 +483,6 @@ fn print_missing_cdx(cdx_dir: &Path, compact: &Path, limit: Option<usize>) -> Re
         digests.len()
     );
 
-    // CDX entries absent from the compact file. An entry counts as "present" only when it has a
-    // recognizable status ID / valid digest that is actually indexed; otherwise it is missing.
     let missing = archivindex_truthsocial_wbm::cdx::read_cdx_entries(cdx_dir)?.filter_map(
         |entry| match entry {
             Err(error) => Some(Err(error)),
@@ -539,7 +527,7 @@ fn print_missing_cdx(cdx_dir: &Path, compact: &Path, limit: Option<usize>) -> Re
     Ok(())
 }
 
-/// Writes one CDX entry as a CSV row: URL, Wayback-format timestamp, and Base32 SHA-1 digest.
+/// Write one CDX entry as a CSV row: URL, Wayback-format timestamp, and Base32 SHA-1 digest.
 fn write_cdx_row<W: Write>(writer: &mut csv::Writer<W>, item: &Item<'_>) -> Result<(), Error> {
     writer.write_record([
         item.original.to_string(),
@@ -550,7 +538,7 @@ fn write_cdx_row<W: Write>(writer: &mut csv::Writer<W>, item: &Item<'_>) -> Resu
     Ok(())
 }
 
-/// Selects up to `k` items uniformly at random from a fallible stream using Algorithm R.
+/// Select up to `k` items uniformly at random from a fallible stream using Algorithm R.
 ///
 /// The reservoir grows to hold every item when the stream is shorter than `k`, so no more than
 /// `min(k, stream length)` items are ever held. The first stream error aborts sampling.
@@ -577,7 +565,7 @@ fn reservoir_sample<T, E, I: Iterator<Item = Result<T, E>>>(
     Ok(reservoir)
 }
 
-/// Merges two compact WTJ snapshot files and writes the result, ordered by SHA-1 digest, as
+/// Merge two compact WTJ snapshot files and write the result, ordered by SHA-1 digest, as
 /// newline-delimited JSON to stdout.
 ///
 /// Rows that share a digest are logged and reduced to one row, unless they differ in content or
@@ -601,11 +589,12 @@ fn merge_compact_files(first: &Path, second: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-/// Compacts a data directory of raw status JSON files (named by SHA-1 digest), enriched with CDX
+/// Compact a data directory of raw status JSON files (named by SHA-1 digest), enriched with CDX
 /// metadata, into a single zstd-compressed NDJSON snapshot file, writing a JSON run summary.
 ///
-/// Uses [`archivindex_wbm_json_processing::process::compact`] with a single output partition (the
-/// Truth Social [`validation_context`](archivindex_truthsocial_wbm::validation_context)).
+/// Uses [`archivindex_wbm_json_processing::process::compact`] with a single output partition,
+/// validated against the Truth Social
+/// [`validation_context`](archivindex_truthsocial_wbm::validation_context).
 /// `invalid_db` is the SQLite database of known-invalid digests consulted during CDX resolution.
 fn compact(
     cdx: &Path,
@@ -714,8 +703,8 @@ enum FileError {
 }
 
 impl FileError {
-    /// Returns true if the file could not be decoded as UTF-8 text or gzip (common for binary files
-    /// that are not statuses).
+    /// Whether the file could not be decoded as UTF-8 text or gzip (common for binary files that
+    /// are not statuses).
     const fn is_decode_error(&self) -> bool {
         matches!(self, Self::Decode)
     }
