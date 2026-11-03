@@ -764,11 +764,11 @@ pub struct Mention<'a> {
 
 /// A hashtag used in a status.
 ///
-/// Unlike the rest of the model, this type is not strict. `deny_unknown_fields` is incompatible
-/// with the flattened [`trending`](Self::trending) field, and `#[serde(flatten)]` routes leftover
-/// keys through Serde's content buffer, which ignores `deny_unknown_fields` even on the flattened
-/// struct. Unknown keys are therefore silently dropped here rather than rejected.
+/// The [`trending`](Self::trending) fields appear inline in the JSON object. They must be all
+/// present (and not null) or all absent, and as in the rest of the model, unknown keys are
+/// rejected.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(try_from = "RawTag<'a>")]
 pub struct Tag<'a> {
     /// The hashtag text (without the # symbol).
     pub name: Cow<'a, str>,
@@ -776,26 +776,129 @@ pub struct Tag<'a> {
     /// URL to view statuses with this hashtag.
     pub url: Option<Cow<'a, str>>,
 
+    /// Hashtag ID, present as an integer string in the tags of a group from the group endpoints.
+    /// The trending view carries the ID as a number in [`TagTrending::id`] instead.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "optional_integer_str::serialize"
+    )]
+    pub id: Option<u64>,
+
     /// Per-day usage history buckets, present in the tag-search and trending views (Mastodon
     /// standard) and absent from the lightweight tags inlined in a status. Skipped when absent so
     /// an inline tag still serializes to just `{name, url}`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<Vec<TagHistory<'a>>>,
 
     /// Recent daily usage counts, newest first (Truth Social specific). Present in the tag-search
     /// view alongside [`history`](Self::history).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub recent_history: Option<Vec<u64>>,
 
     /// Number of statuses that recently used this hashtag (Truth Social specific). Present in the
     /// tag-search view.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub recent_statuses_count: Option<u64>,
 
     /// Extended trending/moderation metadata, present only in the trending/admin tag view (e.g. a
     /// group's `tags`) and absent from the lightweight tags inlined in a status.
     #[serde(flatten)]
     pub trending: Option<TagTrending>,
+}
+
+/// The JSON form of a [`Tag`], with each [`TagTrending`] field inline and optional.
+///
+/// [`Tag`] deserializes through this type because flattening [`TagTrending`] would accept unknown
+/// keys, and would turn any malformed trending field into a silently absent block.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTag<'a> {
+    name: Cow<'a, str>,
+    url: Option<Cow<'a, str>>,
+    history: Option<Vec<TagHistory<'a>>>,
+    recent_history: Option<Vec<u64>>,
+    recent_statuses_count: Option<u64>,
+    /// A number in the trending view, and an integer string in a group's tags.
+    #[serde(default, with = "either::serde_untagged_optional")]
+    id: Option<Either<u64, Cow<'a, str>>>,
+    created_at: Option<DateTime<Utc>>,
+    updated_at: Option<DateTime<Utc>>,
+    last_status_at: Option<DateTime<Utc>>,
+    usable: Option<bool>,
+    trendable: Option<bool>,
+    listable: Option<bool>,
+    reviewed_at: Option<DateTime<Utc>>,
+    requested_review_at: Option<DateTime<Utc>>,
+    max_score: Option<serde_json::Number>,
+    max_score_at: Option<DateTime<Utc>>,
+}
+
+impl<'a> TryFrom<RawTag<'a>> for Tag<'a> {
+    type Error = &'static str;
+
+    fn try_from(raw: RawTag<'a>) -> Result<Self, Self::Error> {
+        let no_optional_trending = raw.reviewed_at.is_none()
+            && raw.requested_review_at.is_none()
+            && raw.max_score.is_none()
+            && raw.max_score_at.is_none();
+
+        let (id, trending) = match (
+            raw.id,
+            raw.created_at,
+            raw.updated_at,
+            raw.last_status_at,
+            raw.usable,
+            raw.trendable,
+            raw.listable,
+        ) {
+            (
+                Some(Either::Left(id)),
+                Some(created_at),
+                Some(updated_at),
+                Some(last_status_at),
+                Some(usable),
+                Some(trendable),
+                Some(listable),
+            ) => Ok((
+                None,
+                Some(TagTrending {
+                    id,
+                    created_at,
+                    updated_at,
+                    last_status_at,
+                    usable,
+                    trendable,
+                    listable,
+                    reviewed_at: raw.reviewed_at,
+                    requested_review_at: raw.requested_review_at,
+                    max_score: raw.max_score,
+                    max_score_at: raw.max_score_at,
+                }),
+            )),
+            (None, None, None, None, None, None, None) if no_optional_trending => Ok((None, None)),
+            (Some(Either::Right(id)), None, None, None, None, None, None)
+                if no_optional_trending =>
+            {
+                id.parse()
+                    .map(|id| (Some(id), None))
+                    .map_err(|_| "a tag's string id must be an unsigned integer")
+            }
+            _ => Err(
+                "a tag's trending fields must be all present and non-null with a numeric id, or all \
+                 absent",
+            ),
+        }?;
+
+        Ok(Self {
+            name: raw.name,
+            url: raw.url,
+            id,
+            history: raw.history,
+            recent_history: raw.recent_history,
+            recent_statuses_count: raw.recent_statuses_count,
+            trending,
+        })
+    }
 }
 
 /// The extended trending/moderation fields of a [`Tag`].
@@ -1255,6 +1358,51 @@ mod tests {
             serde_json::to_value(&full).unwrap(),
             serde_json::from_str::<serde_json::Value>(full_json).unwrap(),
         );
+    }
+
+    /// The group endpoints send each tag's ID as an integer string, without a URL or trending
+    /// block. That ID was silently dropped while the trending block was flattened.
+    #[test]
+    fn tag_reads_group_id() {
+        let json = r#"{"name":"Truth","id":"30"}"#;
+        let tag: Tag<'_> = serde_json::from_str(json).expect("group tag");
+        assert_eq!(tag.id, Some(30));
+        assert!(tag.trending.is_none());
+        assert_eq!(
+            serde_json::to_value(&tag).unwrap(),
+            serde_json::json!({"name": "Truth", "url": null, "id": "30"}),
+        );
+    }
+
+    /// A malformed or partial trending block is an error, not a tag without trending data. When
+    /// the block was flattened, each of these parsed as a tag with `trending: None`, so the schema
+    /// check stayed green while the block's shape changed.
+    #[test]
+    fn tag_rejects_malformed_trending() {
+        let full = serde_json::json!({"name":"music","url":null,"id":227,"created_at":"2022-02-16T22:38:42.721Z","updated_at":"2023-02-17T15:08:07.243Z","last_status_at":"2023-02-17T15:08:06.953Z","usable":true,"trendable":true,"listable":true,"reviewed_at":null,"requested_review_at":null,"max_score":null,"max_score_at":null});
+        serde_json::from_value::<Tag<'_>>(full.clone()).expect("full tag");
+
+        let lightweight = serde_json::json!({"name": "Truth", "url": null});
+        for (key, value, base) in [
+            ("last_status_at", Some(serde_json::Value::Null), &full),
+            ("id", Some(serde_json::json!("1")), &full),
+            ("usable", None, &full),
+            ("usable", Some(serde_json::json!("yes")), &full),
+            ("unknown", Some(serde_json::json!(1)), &full),
+            ("unknown", Some(serde_json::json!(1)), &lightweight),
+            ("max_score", Some(serde_json::json!(1)), &lightweight),
+            ("id", Some(serde_json::json!(30)), &lightweight),
+            ("id", Some(serde_json::json!("x")), &lightweight),
+        ] {
+            let mut tag = base.clone();
+            let object = tag.as_object_mut().unwrap();
+            match &value {
+                Some(value) => object.insert(key.to_owned(), value.clone()),
+                None => object.remove(key),
+            };
+            let result = serde_json::from_value::<Tag<'_>>(tag);
+            assert!(result.is_err(), "{key} = {value:?}: {result:?}");
+        }
     }
 
     /// A reblog (boost): the outer status carries a `reblog` with its own account and card.
