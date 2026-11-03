@@ -73,7 +73,7 @@ impl Config {
     /// Directory synchronization is performed on Unix. If it fails after publication, the new
     /// config remains visible. The publication error is retained inside the [`ConfigError::Io`]
     /// source and can be downcast to [`archivindex_publication::Error`] to distinguish that
-    /// outcome. Newly created ancestor directories are not synced.
+    /// outcome.
     ///
     /// # Errors
     ///

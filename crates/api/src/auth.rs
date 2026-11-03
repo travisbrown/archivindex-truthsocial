@@ -17,6 +17,8 @@ pub const PASSWORD_ENV: &str = "TRUTHSOCIAL_PASSWORD";
 pub const DEFAULT_SCOPE: &str = "read";
 
 /// Credentials for the OAuth 2.0 password grant.
+///
+/// The [`Debug`] output redacts the client secret and password.
 #[derive(Clone)]
 pub struct Credentials {
     client_id: String,
@@ -81,7 +83,6 @@ impl Credentials {
 }
 
 impl std::fmt::Debug for Credentials {
-    /// Redacts the client secret and password from debug output.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Credentials")
             .field("client_id", &self.client_id)

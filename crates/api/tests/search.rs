@@ -15,8 +15,7 @@ use archivindex_truthsocial_api::types::SearchResults;
 
 mod common;
 
-/// Expands to a `(name, json)` fixture entry, embedding `data/search/<dir>/<name>` at compile time
-/// so each filename is written exactly once.
+/// Embed a JSON fixture from `data/search/<dir>/` alongside its filename.
 macro_rules! fixture {
     ($dir:literal, $name:literal) => {
         (
@@ -56,7 +55,6 @@ fn assert_facet_matches(facet: &str, set: &[(&str, &str)]) {
 fn group_search_fixtures_populate_groups_and_position() {
     let results = parse_all(GROUP_FIXTURES);
 
-    // A `type=groups` search fills the `groups` facet.
     assert!(
         results.iter().all(|r| !r.groups.is_empty()),
         "a group fixture parsed with no groups"
@@ -77,13 +75,11 @@ fn group_search_fixtures_populate_groups_and_position() {
 fn topic_search_fixtures_populate_hashtag_history() {
     let results = parse_all(TOPIC_FIXTURES);
 
-    // Hashtag search results populate the `hashtags` list.
     assert!(
         results.iter().all(|r| !r.hashtags.is_empty()),
         "a topic fixture parsed with no hashtags"
     );
 
-    // Check that hashtag history and recent usage fields survive deserialization.
     assert!(
         results.iter().flat_map(|r| &r.hashtags).any(|tag| {
             tag.history.as_ref().is_some_and(|h| !h.is_empty())

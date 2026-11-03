@@ -1,7 +1,8 @@
 # archivindex-truthsocial-api
 
 An asynchronous client for the Truth Social HTTP API, using the shared types from
-`archivindex-truthsocial`. It supports account and status lookups, timelines, groups, and search.
+`archivindex-truthsocial`. It supports account and status lookups, timelines (including group
+timelines), and search.
 
 Supply a bearer token with `Client::with_token`, or call `Client::login` with application and user
 credentials. `Credentials::from_env` reads credentials from environment variables.

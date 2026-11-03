@@ -15,8 +15,7 @@ mod common;
 /// The fixtures directory on disk, used only to detect drift from [`FIXTURES`].
 const GROUPS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/groups/by-id");
 
-/// Expands to a `(name, json)` fixture entry, embedding `data/groups/by-id/<name>` at compile time
-/// so the filename is written exactly once.
+/// Embed a JSON fixture alongside its filename.
 macro_rules! fixture {
     ($name:literal) => {
         ($name, include_str!(concat!("data/groups/by-id/", $name)))

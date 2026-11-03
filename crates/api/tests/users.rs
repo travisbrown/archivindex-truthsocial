@@ -65,7 +65,6 @@ const FIXTURES: &[(&str, &str)] = &[
 #[test]
 fn user_fixtures_parse_as_account() {
     for &(name, json) in FIXTURES {
-        // Deserialize the embedded JSON fixture.
         if let Err(error) = serde_json::from_str::<Account<'_>>(json) {
             panic!("{name} failed to parse as Account: {error}");
         }

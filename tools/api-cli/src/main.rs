@@ -1,18 +1,5 @@
 //! `archivindex-truthsocial-api`: command-line access to the Truth Social API.
 //!
-//! Subcommands:
-//!   - `setup`: open a browser to log in and clear Cloudflare, saving the session (User-Agent,
-//!     Cloudflare cookies, and any captured bearer token) to the config file.
-//!   - `lookup-user-name <handle>`: fetch an account by handle and print the raw JSON.
-//!   - `lookup-user-id <id>`: fetch an account by numeric id and print the raw JSON.
-//!   - `lookup-status <status>`: fetch a status by id and print the raw JSON.
-//!   - `lookup-group-id <id>`: fetch a group by numeric id and print the raw JSON.
-//!   - `lookup-group-name <slug>`: fetch a group by its URL slug and print the raw JSON.
-//!   - `group-memberships <id> --role <owner|admin|member> [--q <query>]`: list a group's members
-//!     for one role and print the raw JSON.
-//!   - `search <query> [--type <profiles|truths|groups|topics>] [--resolve]`: search and print the
-//!     raw JSON results.
-//!
 //! ```text
 //! cargo run -p archivindex-truthsocial-api-cli -- setup
 //! cargo run -p archivindex-truthsocial-api-cli -- lookup-user-name realDonaldTrump

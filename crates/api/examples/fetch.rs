@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("Loaded session from {}", config_path.display());
         }
         Err(error) => eprintln!(
-            "Could not load a session from {} ({error}); run `archivindex-truthsocial-api-cli` to create one",
+            "Could not load a session from {} ({error}); run `archivindex-truthsocial-api setup` to create one",
             config_path.display()
         ),
     }

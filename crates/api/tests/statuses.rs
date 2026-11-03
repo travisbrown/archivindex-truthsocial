@@ -81,7 +81,6 @@ const FIXTURES: &[(&str, &str)] = &[
 #[test]
 fn status_fixtures_parse_as_status() {
     for &(name, json) in FIXTURES {
-        // Deserialize the embedded JSON fixture.
         if let Err(error) = serde_json::from_str::<Status<'_>>(json) {
             panic!("{name} failed to parse as Status: {error}");
         }
