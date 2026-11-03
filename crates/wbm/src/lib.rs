@@ -5,14 +5,14 @@
 //! gzip codec), [`WtjSnapshot`] wraps a snapshot's [`StatusContent`], [`read_statuses`] streams
 //! statuses out of a zstd-compressed compact snapshot file, and [`merge_compact`] merges two such
 //! files in digest order. The [`cdx`] module reads directories of CDX entry files.
-use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 use archivindex_truthsocial::model::{Status, StatusContent};
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json::context::Context;
 use archivindex_wbm_json::exact::ExactSnapshot;
+use archivindex_wbm_json_processing::io::read::SnapshotReader;
 use archivindex_wbm_json_processing::io::zst;
 use archivindex_wbm_json_processing::process::merge::{self, Collision, SourceLine};
 use either::Either;
@@ -59,53 +59,46 @@ pub fn validation_context() -> Context {
 /// An error encountered while reading a compact WTJ snapshot file.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// The file could not be opened, decompressed, or read.
+    /// The file could not be opened, or the decoder could not be initialized.
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    /// A line could not be parsed as a [`WtjSnapshot`].
+    /// A line could not be read or decompressed, or does not hold a snapshot.
+    #[error(transparent)]
+    Read(#[from] archivindex_wbm_json_processing::io::read::Error),
+    /// A snapshot's content could not be parsed as [`StatusContent`].
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }
 
 /// Streams Truth Social statuses from a zstd-compressed compact WTJ snapshot file.
 ///
-/// The file is zstd-compressed with one JSON [`WtjSnapshot`] per line. Each yielded item is one
-/// owned [`Status`]; a snapshot whose content is an array of statuses yields each of them in turn.
-/// Blank lines are skipped. Statuses are produced lazily, so the whole file is never held in memory
-/// at once.
+/// The file is zstd-compressed with one JSON [`WtjSnapshot`] per line, and blank lines are errors.
+/// Each yielded item is one owned [`Status`]; a snapshot whose content is an array of statuses
+/// yields each of them in turn. Statuses are produced lazily, so the whole file is never held in
+/// memory at once.
 ///
 /// # Errors
 ///
 /// Returns [`Error::Io`] if the file cannot be opened or the decoder cannot be initialized. Each
-/// iterator item is an [`Error::Io`] for a read or decompression failure, or an [`Error::Json`] for
-/// a line that fails to deserialize.
+/// iterator item is an [`Error::Read`] for a line that cannot be read or is not a snapshot, or an
+/// [`Error::Json`] for a snapshot whose content fails to deserialize. The iterator ends after a
+/// read or decompression failure, so a caller may skip errors and keep reading.
 pub fn read_statuses<P: AsRef<Path>>(
     path: P,
 ) -> Result<impl Iterator<Item = Result<Status<'static>, Error>>, Error> {
-    let decoder = zstd::Decoder::new(File::open(path)?)?;
+    Ok(SnapshotReader::open(path)?.flat_map(|snapshot| {
+        let content = snapshot.map_err(Error::Read).and_then(|snapshot| {
+            serde_json::from_str::<StatusContent<'static>>(snapshot.content.as_str())
+                .map_err(Error::Json)
+        });
 
-    Ok(BufReader::new(decoder)
-        .lines()
-        .filter_map(|line| match line {
-            Err(error) => Some(Err(Error::Io(error))),
-            Ok(line) if line.trim().is_empty() => None,
-            // The snapshot envelope's optional string fields borrow from the input, so the envelope
-            // is parsed at `line`'s lifetime; its content is deserialized as owned, which is what
-            // lets the yielded statuses outlive the line they came from.
-            Ok(line) => Some(
-                serde_json::from_str::<archivindex_wbm_json::Snapshot<'_, StatusContent<'static>>>(
-                    &line,
-                )
-                .map(|snapshot| snapshot.content)
-                .map_err(Error::Json),
-            ),
-        })
         // Flatten each snapshot's content into its individual statuses (one for a single status,
-        // several for an array), threading any parse error through as a single item.
-        .flat_map(|result| match result {
+        // several for an array), threading any error through as a single item.
+        match content {
             Ok(content) => Either::Left(content.into_statuses().map(Ok)),
             Err(error) => Either::Right(std::iter::once(Err(error))),
-        }))
+        }
+    }))
 }
 
 /// An error encountered while merging two compact WTJ snapshot files.
@@ -472,6 +465,29 @@ mod tests {
 
         // One status from the single-status line, two from the array line.
         assert_eq!(statuses.len(), 3);
+    }
+
+    /// A truncated file yields one error and then ends. The reader used to repeat the same
+    /// decompression error forever, so a caller that skipped errors never finished.
+    #[test]
+    fn read_statuses_ends_after_corrupt_input() {
+        let lines = curated_single_status_lines();
+        let refs = lines.iter().map(String::as_str).collect::<Vec<_>>();
+        let bytes = std::fs::read(compact_file(&refs).path()).expect("read compact file");
+        let truncated = tempfile::NamedTempFile::new().expect("temp file");
+        std::fs::write(truncated.path(), &bytes[..bytes.len() / 2]).expect("write truncated file");
+
+        let items = read_statuses(truncated.path())
+            .expect("open truncated file")
+            .take(lines.len() + 1)
+            .collect::<Vec<_>>();
+
+        assert_eq!(items.iter().filter(|item| item.is_err()).count(), 1);
+        assert!(
+            matches!(items.last(), Some(Err(Error::Read(_)))),
+            "expected a final read error, got {:?}",
+            items.last()
+        );
     }
 
     /// Writes the given lines to a fresh zstd-compressed temp file.
