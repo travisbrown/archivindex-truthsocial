@@ -5,8 +5,9 @@
 //! groups, polls, custom emoji, and Truth Social specific extensions such as TV metadata and
 //! advertising metrics.
 //!
-//! String fields use [`Cow`] to support owned and borrowed values. Serde deserialization stores
-//! these strings as owned values. Wayback Machine integration lives in
+//! String fields use [`Cow`], and borrow from the input when the deserializer allows it (for JSON
+//! parsed from a string or byte slice, strings without escapes). Use [`from_str_owned`] for values
+//! that must outlive their input. Wayback Machine integration lives in
 //! `archivindex-truthsocial-wbm`.
 
 use std::borrow::Cow;
@@ -42,21 +43,26 @@ pub struct Status<'a> {
     pub sensitive: bool,
 
     /// Content warning text, if any.
+    #[serde(borrow)]
     pub spoiler_text: Cow<'a, str>,
 
     /// Visibility level, or `None` when the field is missing or `null`.
     pub visibility: Option<Visibility>,
 
     /// ISO 639-1 language code, if detected.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub language: Option<Cow<'a, str>>,
 
     /// `ActivityPub` URI for this status.
+    #[serde(borrow)]
     pub uri: Cow<'a, str>,
 
     /// Web URL for this status.
+    #[serde(borrow)]
     pub url: Cow<'a, str>,
 
     /// HTML-formatted content of this status.
+    #[serde(borrow)]
     pub content: Cow<'a, str>,
 
     /// Plain-text source of the content. Only `null` has been observed in fixtures;
@@ -68,21 +74,27 @@ pub struct Status<'a> {
     pub application: Option<()>,
 
     /// The account that authored this status.
+    #[serde(borrow)]
     pub account: Account<'a>,
 
     /// Media attachments (images, videos, etc.).
+    #[serde(borrow)]
     pub media_attachments: Vec<MediaAttachment<'a>>,
 
     /// Accounts mentioned in this status.
+    #[serde(borrow)]
     pub mentions: Vec<Mention<'a>>,
 
     /// Hashtags used in this status.
+    #[serde(borrow)]
     pub tags: Vec<Tag<'a>>,
 
     /// Preview card for linked content, if any.
+    #[serde(borrow)]
     pub card: Option<Card<'a>>,
 
     /// Group this status was posted to, if any.
+    #[serde(borrow)]
     pub group: Option<Group<'a>>,
 
     /// Quoted status, if this is a quote post.
@@ -114,6 +126,7 @@ pub struct Status<'a> {
     pub favourites_count: Option<usize>,
 
     /// Current user's reaction to this status, if any (e.g. `"upvote"`).
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub reaction: Option<Cow<'a, str>>,
 
     /// Number of upvotes (Truth Social specific).
@@ -144,9 +157,11 @@ pub struct Status<'a> {
     pub bookmarked: Option<bool>,
 
     /// Poll attached to this status, if any.
+    #[serde(borrow)]
     pub poll: Option<Poll<'a>>,
 
     /// Custom emoji used in this status.
+    #[serde(borrow)]
     pub emojis: Vec<Emoji<'a>>,
 
     /// Whether the current user can vote on this status (Truth Social specific).
@@ -156,12 +171,14 @@ pub struct Status<'a> {
     pub edited_at: Option<DateTime<Utc>>,
 
     /// Version number of this status (for edit tracking).
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub version: Option<Cow<'a, str>>,
 
     /// Whether the current user can edit this status.
     pub editable: Option<bool>,
 
     /// Title of this status (Truth Social specific).
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub title: Option<Cow<'a, str>>,
 
     /// Tombstone information if this status was deleted.
@@ -171,9 +188,11 @@ pub struct Status<'a> {
     pub deleted_at: Option<DateTime<Utc>>,
 
     /// Advertising metrics for sponsored content (Truth Social specific).
+    #[serde(borrow)]
     pub metrics: Option<Metrics<'a>>,
 
     /// TV-specific metadata for live/scheduled TV content (Truth Social specific).
+    #[serde(borrow)]
     pub tv: Option<TvMetadata<'a>>,
 
     /// Announcement embedded in this status (Truth Social specific). Absent in older snapshots; its
@@ -183,13 +202,23 @@ pub struct Status<'a> {
 
     /// URL of the next status in a paged video feed (Truth Social specific). Absent in older
     /// snapshots.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        borrow,
+        default,
+        with = "archivindex_serde::borrowable_str::option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub next_status: Option<Cow<'a, str>>,
 
     /// Per-request signature token. Observed as `<base64-json>.<base64-other>`, where the JSON
     /// payload decodes to `[viewer_id, status_id, request_timestamp]`. Absent in older snapshots;
     /// kept as an opaque token.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        borrow,
+        default,
+        with = "archivindex_serde::borrowable_str::option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub signature: Option<Cow<'a, str>>,
 
     /// Whether this reply is pinned beneath its parent status by that status's author. Absent in
@@ -235,15 +264,11 @@ impl<'a> StatusContent<'a> {
 // struct would accept. The untagged derive is not an option here: it buffers into an intermediate
 // value, through which `Status`'s field-level custom deserializers (e.g. the `integer_str` and
 // `last_status_at` helpers) do not round-trip.
-#[expect(
-    clippy::elidable_lifetime_names,
-    reason = "`'a` is named rather than elided because the inner visitor refers to it"
-)]
-impl<'de, 'a> serde::Deserialize<'de> for StatusContent<'a> {
+impl<'de: 'a, 'a> serde::Deserialize<'de> for StatusContent<'a> {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct ContentVisitor<'a>(std::marker::PhantomData<&'a ()>);
 
-        impl<'de, 'a> serde::de::Visitor<'de> for ContentVisitor<'a> {
+        impl<'de: 'a, 'a> serde::de::Visitor<'de> for ContentVisitor<'a> {
             type Value = StatusContent<'a>;
 
             fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -294,16 +319,12 @@ pub enum ResponseBody<'a> {
 // account carries and no status does. Buffering (rather than streaming straight into `Status`) is
 // what lets the account alternative be tried, and routing it through `serde_json::Value` preserves
 // the field-level custom deserializers (e.g. `integer_str`) that serde's own untagged buffering
-// would break.
-#[expect(
-    clippy::elidable_lifetime_names,
-    reason = "`'a` is named rather than elided because the inner visitor refers to it"
-)]
-impl<'de, 'a> serde::Deserialize<'de> for ResponseBody<'a> {
+// would break. Strings in a buffered object are owned, so only an array of statuses borrows.
+impl<'de: 'a, 'a> serde::Deserialize<'de> for ResponseBody<'a> {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct ResponseBodyVisitor<'a>(std::marker::PhantomData<&'a ()>);
 
-        impl<'de, 'a> serde::de::Visitor<'de> for ResponseBodyVisitor<'a> {
+        impl<'de: 'a, 'a> serde::de::Visitor<'de> for ResponseBodyVisitor<'a> {
             type Value = ResponseBody<'a>;
 
             fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -362,12 +383,14 @@ pub struct Tombstone {
 #[serde(deny_unknown_fields)]
 pub struct Metrics<'a> {
     /// URL to call for tracking impressions.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub impression: Option<Cow<'a, str>>,
 
     /// When these metrics expire.
     pub expires_at: Option<DateTime<Utc>>,
 
     /// Reason displayed to user for why this ad is shown.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub reason: Option<Cow<'a, str>>,
 }
 
@@ -387,6 +410,7 @@ pub struct TvMetadata<'a> {
     pub end_time: DateTime<Utc>,
 
     /// Name/title of the TV program.
+    #[serde(borrow)]
     pub name: Cow<'a, str>,
 
     /// PLTV timespan, in milliseconds.
@@ -397,9 +421,11 @@ pub struct TvMetadata<'a> {
     pub pltv_timespan: i64,
 
     /// URL to the program's image/thumbnail.
+    #[serde(borrow)]
     pub image_url: Cow<'a, str>,
 
     /// Description of the TV program.
+    #[serde(borrow)]
     pub description: Cow<'a, str>,
 }
 
@@ -439,12 +465,15 @@ pub struct Account<'a> {
     pub id: u64,
 
     /// Username (without domain).
+    #[serde(borrow)]
     pub username: Cow<'a, str>,
 
     /// Account address: `username@domain` for a remote account, or `username` for a local one.
+    #[serde(borrow)]
     pub acct: Cow<'a, str>,
 
     /// Display name shown on profile.
+    #[serde(borrow)]
     pub display_name: Cow<'a, str>,
 
     /// Whether this account requires follow approval.
@@ -463,21 +492,27 @@ pub struct Account<'a> {
     pub created_at: DateTime<Utc>,
 
     /// HTML-formatted bio/description.
+    #[serde(borrow)]
     pub note: Cow<'a, str>,
 
     /// URL to the account's profile page.
+    #[serde(borrow)]
     pub url: Cow<'a, str>,
 
     /// URL to the account's avatar image.
+    #[serde(borrow)]
     pub avatar: Cow<'a, str>,
 
     /// URL to the static version of the avatar.
+    #[serde(borrow)]
     pub avatar_static: Cow<'a, str>,
 
     /// URL to the account's header/banner image.
+    #[serde(borrow)]
     pub header: Cow<'a, str>,
 
     /// URL to the static version of the header.
+    #[serde(borrow)]
     pub header_static: Cow<'a, str>,
 
     /// Number of followers.
@@ -501,9 +536,11 @@ pub struct Account<'a> {
     pub verified: Option<bool>,
 
     /// Location string (Truth Social specific).
+    #[serde(borrow)]
     pub location: Cow<'a, str>,
 
     /// Website URL (Truth Social specific).
+    #[serde(borrow)]
     pub website: Cow<'a, str>,
 
     /// Whether unauthenticated users can view this account (Truth Social specific).
@@ -535,9 +572,11 @@ pub struct Account<'a> {
     pub show_nonmember_group_statuses: Option<bool>,
 
     /// Custom emoji used by this account.
+    #[serde(borrow)]
     pub emojis: Vec<Emoji<'a>>,
 
     /// Profile metadata fields.
+    #[serde(borrow)]
     pub fields: Vec<Field<'a>>,
 
     /// Whether this account has completed TV onboarding (Truth Social specific).
@@ -583,37 +622,47 @@ pub struct MediaAttachment<'a> {
     pub media_type: MediaType,
 
     /// URL to the full-size media.
+    #[serde(borrow)]
     pub url: Cow<'a, str>,
 
     /// URL to the preview/thumbnail.
+    #[serde(borrow)]
     pub preview_url: Cow<'a, str>,
 
     /// External video ID for embedded videos, if any.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub external_video_id: Option<Cow<'a, str>>,
 
     /// URL to the remote original, if federated.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub remote_url: Option<Cow<'a, str>>,
 
     /// URL to the remote preview, if federated.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub preview_remote_url: Option<Cow<'a, str>>,
 
     /// Short URL for the attachment, if any.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub text_url: Option<Cow<'a, str>>,
 
     /// Metadata about the media dimensions and processing, or `None` when the attachment carries
     /// none (as an `unknown` or not-yet-processed attachment can).
+    #[serde(borrow)]
     pub meta: Option<MediaMeta<'a>>,
 
     /// Alt text description.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub description: Option<Cow<'a, str>>,
 
     /// Blurhash placeholder string, if available.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub blurhash: Option<Cow<'a, str>>,
 
     /// Processing status of this attachment.
     pub processing: Option<ProcessingStatus>,
 
     /// TV-specific metadata for live/scheduled TV content.
+    #[serde(borrow)]
     pub tv: Option<TvMetadata<'a>>,
 }
 
@@ -654,12 +703,15 @@ pub enum ProcessingStatus {
 #[serde(deny_unknown_fields)]
 pub struct MediaMeta<'a> {
     /// Original size metadata.
+    #[serde(borrow)]
     pub original: Option<ImageMeta<'a>>,
 
     /// Small/thumbnail size metadata.
+    #[serde(borrow)]
     pub small: Option<ImageMeta<'a>>,
 
     /// Color information extracted from the media.
+    #[serde(borrow)]
     pub colors: Option<MediaColors<'a>>,
 }
 
@@ -668,12 +720,15 @@ pub struct MediaMeta<'a> {
 #[serde(deny_unknown_fields)]
 pub struct MediaColors<'a> {
     /// Accent color as hex string (e.g., "#c2aca1").
+    #[serde(borrow)]
     pub accent: Cow<'a, str>,
 
     /// Background color as hex string.
+    #[serde(borrow)]
     pub background: Cow<'a, str>,
 
     /// Foreground color as hex string.
+    #[serde(borrow)]
     pub foreground: Cow<'a, str>,
 }
 
@@ -691,6 +746,7 @@ pub struct ImageMeta<'a> {
     pub height: Option<u64>,
 
     /// Size as a `WxH` string. Present for images.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub size: Option<Cow<'a, str>>,
 
     /// Width in pixels.
@@ -703,6 +759,7 @@ pub struct ImageMeta<'a> {
     pub duration: Option<f64>,
 
     /// Frame rate as a fraction string (e.g., "30000/1001"). Present for videos.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub frame_rate: Option<Cow<'a, str>>,
 }
 
@@ -753,12 +810,15 @@ pub struct Mention<'a> {
     pub id: MentionId,
 
     /// Username of the mentioned user.
+    #[serde(borrow)]
     pub username: Cow<'a, str>,
 
     /// URL to the mentioned user's profile.
+    #[serde(borrow)]
     pub url: Cow<'a, str>,
 
     /// Account address (`username` or `username@domain`).
+    #[serde(borrow)]
     pub acct: Cow<'a, str>,
 }
 
@@ -768,7 +828,7 @@ pub struct Mention<'a> {
 /// [`TagTrending`] fields are all present and not null, or every trending field is absent. As in
 /// the rest of the model, unknown keys are rejected.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(try_from = "RawTag<'a>")]
+#[serde(try_from = "RawTag<'a>", bound(deserialize = "'de: 'a"))]
 pub struct Tag<'a> {
     /// The hashtag text (without the # symbol).
     pub name: Cow<'a, str>,
@@ -813,8 +873,11 @@ pub struct Tag<'a> {
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawTag<'a> {
+    #[serde(borrow)]
     name: Cow<'a, str>,
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     url: Option<Cow<'a, str>>,
+    #[serde(borrow)]
     history: Option<Vec<TagHistory<'a>>>,
     recent_history: Option<Vec<u64>>,
     recent_statuses_count: Option<u64>,
@@ -952,6 +1015,7 @@ pub struct TagTrending {
 #[serde(deny_unknown_fields)]
 pub struct TagHistory<'a> {
     /// Start of the day this bucket covers, as a Unix timestamp (seconds) string.
+    #[serde(borrow)]
     pub day: Cow<'a, str>,
 
     /// Number of uses of the hashtag that day.
@@ -975,12 +1039,15 @@ pub struct Card<'a> {
     pub id: Option<u64>,
 
     /// URL of the linked resource.
+    #[serde(borrow)]
     pub url: Cow<'a, str>,
 
     /// Title of the linked resource.
+    #[serde(borrow)]
     pub title: Cow<'a, str>,
 
     /// Description of the linked resource.
+    #[serde(borrow)]
     pub description: Cow<'a, str>,
 
     /// Type of preview card.
@@ -988,18 +1055,23 @@ pub struct Card<'a> {
     pub card_type: CardType,
 
     /// Author name, if available.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub author_name: Option<Cow<'a, str>>,
 
     /// Author URL, if available.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub author_url: Option<Cow<'a, str>>,
 
     /// Provider name (e.g., `YouTube`).
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub provider_name: Option<Cow<'a, str>>,
 
     /// Provider URL.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub provider_url: Option<Cow<'a, str>>,
 
     /// HTML for embedding, if available.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub html: Option<Cow<'a, str>>,
 
     /// Suggested width for embed.
@@ -1009,12 +1081,15 @@ pub struct Card<'a> {
     pub height: Option<u64>,
 
     /// Preview image URL.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub image: Option<Cow<'a, str>>,
 
     /// Blurhash for preview image.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub blurhash: Option<Cow<'a, str>>,
 
     /// URL for embedding, if different from main URL.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub embed_url: Option<Cow<'a, str>>,
 
     /// Associated links, if any.
@@ -1048,9 +1123,11 @@ pub struct Group<'a> {
     pub id: u64,
 
     /// Display name of the group.
+    #[serde(borrow)]
     pub display_name: Cow<'a, str>,
 
     /// URL slug for the group.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub slug: Option<Cow<'a, str>>,
 
     /// Whether this is a private group.
@@ -1060,21 +1137,27 @@ pub struct Group<'a> {
     pub discoverable: Option<bool>,
 
     /// Group avatar URL.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub avatar: Option<Cow<'a, str>>,
 
     /// Static version of the group avatar URL.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub avatar_static: Option<Cow<'a, str>>,
 
     /// Group header/banner URL.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub header: Option<Cow<'a, str>>,
 
     /// Static version of the group header URL.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub header_static: Option<Cow<'a, str>>,
 
     /// Group description (HTML formatted).
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub note: Option<Cow<'a, str>>,
 
     /// Group visibility setting.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub group_visibility: Option<Cow<'a, str>>,
 
     /// When this group was created.
@@ -1090,12 +1173,15 @@ pub struct Group<'a> {
     pub members_count: Option<u64>,
 
     /// Tags associated with this group.
+    #[serde(borrow)]
     pub tags: Option<Vec<Tag<'a>>>,
 
     /// URL to the group's page.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub url: Option<Cow<'a, str>>,
 
     /// Source content for the group (raw text).
+    #[serde(borrow)]
     pub source: Option<GroupSource<'a>>,
 
     /// Owner of the group.
@@ -1103,12 +1189,12 @@ pub struct Group<'a> {
 
     /// Event category name, if this group is an event (Truth Social specific). Absent in older
     /// snapshots.
-    #[serde(default)]
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub event_category_name: Option<Cow<'a, str>>,
 
     /// Event subcategory name, if this group is an event (Truth Social specific). Absent in older
     /// snapshots.
-    #[serde(default)]
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub event_subcategory_name: Option<Cow<'a, str>>,
 
     /// Search-relevance rank, present only when this group is returned by `GET /api/v2/search`
@@ -1124,7 +1210,7 @@ pub struct Group<'a> {
     /// A small preview sample of member avatars (Truth Social specific), present in the
     /// single-group lookup response (`GET /api/v1/groups/:id`) and absent when the group is
     /// embedded in a status or returned by search.
-    #[serde(default)]
+    #[serde(borrow, default)]
     pub member_avatars: Option<Vec<GroupMemberAvatar<'a>>>,
 }
 
@@ -1138,12 +1224,15 @@ pub struct GroupMemberAvatar<'a> {
     pub id: u64,
 
     /// Member's handle (without a leading `@`).
+    #[serde(borrow)]
     pub username: Cow<'a, str>,
 
     /// Member's avatar URL.
+    #[serde(borrow)]
     pub avatar: Cow<'a, str>,
 
     /// Static version of the member's avatar URL.
+    #[serde(borrow)]
     pub avatar_static: Cow<'a, str>,
 }
 
@@ -1152,6 +1241,7 @@ pub struct GroupMemberAvatar<'a> {
 #[serde(deny_unknown_fields)]
 pub struct GroupSource<'a> {
     /// Raw note/description text (not HTML).
+    #[serde(borrow)]
     pub note: Cow<'a, str>,
 }
 
@@ -1194,6 +1284,7 @@ pub struct GroupMembership<'a> {
     pub id: u64,
 
     /// The member's full account.
+    #[serde(borrow)]
     pub account: Account<'a>,
 }
 
@@ -1227,9 +1318,11 @@ pub struct Poll<'a> {
     pub own_votes: Option<Vec<u64>>,
 
     /// The poll options.
+    #[serde(borrow)]
     pub options: Vec<PollOption<'a>>,
 
     /// Custom emoji used in poll options.
+    #[serde(borrow)]
     pub emojis: Vec<Emoji<'a>>,
 }
 
@@ -1238,6 +1331,7 @@ pub struct Poll<'a> {
 #[serde(deny_unknown_fields)]
 pub struct PollOption<'a> {
     /// The option text.
+    #[serde(borrow)]
     pub title: Cow<'a, str>,
 
     /// Number of votes for this option.
@@ -1249,18 +1343,22 @@ pub struct PollOption<'a> {
 #[serde(deny_unknown_fields)]
 pub struct Emoji<'a> {
     /// Shortcode for the emoji (without colons).
+    #[serde(borrow)]
     pub shortcode: Cow<'a, str>,
 
     /// URL to the emoji image.
+    #[serde(borrow)]
     pub url: Cow<'a, str>,
 
     /// URL to the static version of the emoji.
+    #[serde(borrow)]
     pub static_url: Cow<'a, str>,
 
     /// Whether this emoji is visible in the picker.
     pub visible_in_picker: bool,
 
     /// Category for organizing emoji.
+    #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub category: Option<Cow<'a, str>>,
 }
 
@@ -1269,13 +1367,30 @@ pub struct Emoji<'a> {
 #[serde(deny_unknown_fields)]
 pub struct Field<'a> {
     /// Field label/name.
+    #[serde(borrow)]
     pub name: Cow<'a, str>,
 
     /// Field value (may contain HTML links).
+    #[serde(borrow)]
     pub value: Cow<'a, str>,
 
     /// When this field was verified, if applicable.
     pub verified_at: Option<DateTime<Utc>>,
+}
+
+/// Deserialize JSON into a value that owns all of its strings, such as a `Status<'static>`.
+///
+/// [`serde_json::from_str`] lends strings from its input, which ties the result to `json`. This
+/// reads `json` as a stream instead, so every string is copied.
+///
+/// # Errors
+///
+/// Returns a [`serde_json::Error`] if `json` is not valid JSON for `T`, or has trailing content.
+pub fn from_str_owned<T: serde::Deserialize<'static>>(json: &str) -> serde_json::Result<T> {
+    let mut deserializer = serde_json::Deserializer::from_reader(json.as_bytes());
+    let value = T::deserialize(&mut deserializer)?;
+    deserializer.end()?;
+    Ok(value)
 }
 
 #[cfg(test)]
@@ -1284,6 +1399,8 @@ mod tests {
         clippy::unreadable_literal,
         reason = "status IDs are long opaque integers; digit separators do not aid readability"
     )]
+
+    use serde::de::Deserialize as _;
 
     use super::*;
 
@@ -1380,7 +1497,7 @@ mod tests {
     #[test]
     fn tag_rejects_malformed_trending() {
         let full = serde_json::json!({"name":"music","url":null,"id":227,"created_at":"2022-02-16T22:38:42.721Z","updated_at":"2023-02-17T15:08:07.243Z","last_status_at":"2023-02-17T15:08:06.953Z","usable":true,"trendable":true,"listable":true,"reviewed_at":null,"requested_review_at":null,"max_score":null,"max_score_at":null});
-        serde_json::from_value::<Tag<'_>>(full.clone()).expect("full tag");
+        Tag::deserialize(full.clone()).expect("full tag");
 
         let lightweight = serde_json::json!({"name": "Truth", "url": null});
         for (key, value, base) in [
@@ -1400,7 +1517,7 @@ mod tests {
                 Some(value) => object.insert(key.to_owned(), value.clone()),
                 None => object.remove(key),
             };
-            let result = serde_json::from_value::<Tag<'_>>(tag);
+            let result = Tag::deserialize(tag);
             assert!(result.is_err(), "{key} = {value:?}: {result:?}");
         }
     }
@@ -1474,8 +1591,8 @@ mod tests {
             "../../tests/data/wbm/snapshots/AASQSDZXOZ2C7Z2UMTZTIJ63I33KY6A3"
         ));
         let value: serde_json::Value = serde_json::from_str(&json).expect("snapshot is valid JSON");
-        let from_value: Status<'_> = serde_json::from_value(value)
-            .expect("Status must deserialize from an owned Value tree");
+        let from_value =
+            Status::deserialize(value).expect("Status must deserialize from an owned Value tree");
 
         // Both deserialization paths must preserve the same field values.
         let from_str: Status<'_> = serde_json::from_str(&json).expect("borrowed parse");
@@ -1483,6 +1600,62 @@ mod tests {
             serde_json::to_value(&from_value).unwrap(),
             serde_json::to_value(&from_str).unwrap(),
         );
+    }
+
+    /// Parsing from a string borrows each string without escapes, at every level: a status's own
+    /// required and optional fields, its nested account, and its tags (which deserialize through
+    /// `RawTag`). Borrowing is easy to lose silently, since an owned `Cow` compares equal.
+    #[test]
+    fn status_strings_borrow_from_the_input() {
+        let json = decode_snapshot(include_bytes!(
+            "../../tests/data/wbm/snapshots/AAAJOS3WOYRYLASLVLDYFDU7EE44SHR2"
+        ));
+        let status: Status<'_> = serde_json::from_str(&json).expect("status parses");
+
+        assert!(matches!(status.uri, Cow::Borrowed(_)));
+        assert!(matches!(status.language, Some(Cow::Borrowed("en"))));
+        assert!(matches!(status.account.username, Cow::Borrowed(_)));
+        assert!(matches!(status.tags[0].name, Cow::Borrowed("AMC")));
+    }
+
+    /// An array of statuses streams straight into `Status`, so it borrows, but an object body is
+    /// buffered through `serde_json::Value` to choose between a status and an account, so it owns.
+    #[test]
+    fn response_body_borrows_only_from_status_arrays() {
+        let json = decode_snapshot(include_bytes!(
+            "../../tests/data/wbm/snapshots/AAAJOS3WOYRYLASLVLDYFDU7EE44SHR2"
+        ));
+        let array = format!("[{json}]");
+
+        let ResponseBody::Statuses(StatusContent::Multiple(statuses)) =
+            serde_json::from_str(&array).expect("array parses")
+        else {
+            panic!("an array is a list of statuses");
+        };
+        assert!(matches!(statuses[0].uri, Cow::Borrowed(_)));
+
+        let ResponseBody::Statuses(StatusContent::Single(status)) =
+            serde_json::from_str(&json).expect("object parses")
+        else {
+            panic!("an object without a username is a status");
+        };
+        assert!(matches!(status.uri, Cow::Owned(_)));
+    }
+
+    /// `from_str_owned` copies every string, so its result outlives the input, and like
+    /// `serde_json::from_str` it rejects trailing content.
+    #[test]
+    fn from_str_owned_detaches_from_the_input() {
+        let json = decode_snapshot(include_bytes!(
+            "../../tests/data/wbm/snapshots/AAAJOS3WOYRYLASLVLDYFDU7EE44SHR2"
+        ));
+        assert!(from_str_owned::<Status<'static>>(&format!("{json} []")).is_err());
+
+        let status = from_str_owned::<Status<'static>>(&json).expect("status parses");
+        drop(json);
+
+        assert!(matches!(status.uri, Cow::Owned(_)));
+        assert!(matches!(status.language, Some(Cow::Owned(_))));
     }
 
     /// A JSON `null` visibility deserializes to `None`, as needed for older captures.
@@ -1495,8 +1668,8 @@ mod tests {
         // Force the top-level visibility to null, mirroring the real captures that triggered this.
         value["visibility"] = serde_json::Value::Null;
 
-        let status: Status<'_> =
-            serde_json::from_value(value).expect("a null visibility must deserialize, not error");
+        let status =
+            Status::deserialize(value).expect("a null visibility must deserialize, not error");
         assert_eq!(status.visibility, None);
     }
 
@@ -1809,10 +1982,9 @@ mod tests {
 
         // Semantic round-trip: `Account` re-emits its optional fields as `null`, so the bytes
         // differ, but reparsing the serialized form must reproduce the same value.
-        let reparsed = serde_json::from_str::<Vec<GroupMembership<'_>>>(
-            &serde_json::to_string(&members).unwrap(),
-        )
-        .expect("serialized memberships reparse");
+        let serialized = serde_json::to_string(&members).unwrap();
+        let reparsed = serde_json::from_str::<Vec<GroupMembership<'_>>>(&serialized)
+            .expect("serialized memberships reparse");
         assert_eq!(reparsed, members);
     }
 

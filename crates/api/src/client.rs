@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use archivindex_truthsocial::model::{Account, Status};
+use archivindex_truthsocial::model::{Account, Status, from_str_owned};
 use url::Url;
 use wreq_util::Profile;
 
@@ -304,19 +304,20 @@ impl Client {
     ///
     /// This backs the typed endpoints and is public so callers can reach endpoints this crate does
     /// not yet model: deserialize into [`serde_json::Value`] for fully dynamic access, or into any
-    /// type that implements [`serde::de::DeserializeOwned`].
+    /// type that implements [`Deserialize<'static>`](serde::de::Deserialize), such as
+    /// [`Status<'static>`](Status).
     ///
     /// # Errors
     ///
     /// [`Error::Api`] for a non-success status, [`Error::Decode`] if the body does not match `T`,
     /// [`Error::ExternalUrl`] for another origin, or [`Error::Transport`] / [`Error::Url`].
-    pub async fn get_json<T: serde::de::DeserializeOwned>(
+    pub async fn get_json<T: serde::de::Deserialize<'static>>(
         &self,
         path: &str,
         query: &[(&str, String)],
     ) -> Result<T> {
         let body = self.get_text(path, query).await?;
-        serde_json::from_str(&body).map_err(|source| Error::Decode {
+        from_str_owned(&body).map_err(|source| Error::Decode {
             target: std::any::type_name::<T>(),
             source,
         })
@@ -350,7 +351,7 @@ impl Client {
     }
 
     /// Encode each endpoint component independently so identifiers cannot change URL structure.
-    async fn get_path_json<T: serde::de::DeserializeOwned>(
+    async fn get_path_json<T: serde::de::Deserialize<'static>>(
         &self,
         segments: &[&str],
         query: &[(&str, String)],

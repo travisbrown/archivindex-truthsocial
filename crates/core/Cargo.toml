@@ -25,6 +25,7 @@ chrono.workspace = true
 either.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+archivindex-serde.workspace = true
 serde-field-attributes.workspace = true
 thiserror.workspace = true
 url.workspace = true

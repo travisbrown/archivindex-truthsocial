@@ -35,7 +35,7 @@ const GROUP_FIXTURES: &[(&str, &str)] = &[
 const TOPIC_FIXTURES: &[(&str, &str)] = &[fixture!("topics", "whitelivesmatter.json")];
 
 /// Deserialize every fixture in `set`, panicking with the filename on failure.
-fn parse_all(set: &[(&str, &str)]) -> Vec<SearchResults> {
+fn parse_all(set: &[(&str, &'static str)]) -> Vec<SearchResults> {
     set.iter()
         .map(|&(name, json)| {
             serde_json::from_str::<SearchResults>(json)

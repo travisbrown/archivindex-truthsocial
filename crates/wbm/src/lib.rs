@@ -8,7 +8,7 @@
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
-use archivindex_truthsocial::model::{ResponseBody, Status, StatusContent};
+use archivindex_truthsocial::model::{ResponseBody, Status, StatusContent, from_str_owned};
 use archivindex_wbm::digest::Sha1Digest;
 use archivindex_wbm_json::context::Context;
 use archivindex_wbm_json::exact::ExactSnapshot;
@@ -89,8 +89,7 @@ pub fn read_statuses<P: AsRef<Path>>(
 ) -> Result<impl Iterator<Item = Result<Status<'static>, Error>>, Error> {
     Ok(SnapshotReader::open(path)?.flat_map(|snapshot| {
         let body = snapshot.map_err(Error::Read).and_then(|snapshot| {
-            serde_json::from_str::<ResponseBody<'static>>(snapshot.content.as_str())
-                .map_err(Error::Json)
+            from_str_owned::<ResponseBody<'static>>(snapshot.content.as_str()).map_err(Error::Json)
         });
 
         // Flatten each snapshot's content into its individual statuses (one for a single status,

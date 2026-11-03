@@ -195,6 +195,7 @@ dependencies = [
 name = "archivindex-truthsocial"
 version = "0.1.0"
 dependencies = [
+ "archivindex-serde",
  "chrono",
  "either",
  "flate2",

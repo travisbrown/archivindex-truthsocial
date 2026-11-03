@@ -12,6 +12,7 @@ use std::io::Read;
 
 use archivindex_truthsocial::model::{Account, ResponseBody, StatusContent};
 use flate2::read::GzDecoder;
+use serde::de::Deserialize as _;
 
 /// The snapshot directory on disk, used only to detect drift from [`FIXTURES`].
 const SNAPSHOTS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/wbm/snapshots");
@@ -120,8 +121,7 @@ fn placeholder_accounts_preserve_null_verification() {
 
         let serialized = serde_json::to_value(account).expect("account serializes");
         assert_eq!(serialized.get("verified"), Some(&serde_json::Value::Null));
-        let reparsed: Account<'_> =
-            serde_json::from_value(serialized).expect("serialized account reparses");
+        let reparsed = Account::deserialize(serialized).expect("serialized account reparses");
         assert_eq!(&reparsed, account);
     }
 }

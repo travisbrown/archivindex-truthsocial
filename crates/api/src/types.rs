@@ -131,16 +131,16 @@ impl SearchKind {
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct SearchResults {
     /// Matching accounts.
-    #[serde(default)]
+    #[serde(borrow, default)]
     pub accounts: Vec<Account<'static>>,
     /// Matching statuses.
-    #[serde(default)]
+    #[serde(borrow, default)]
     pub statuses: Vec<Status<'static>>,
     /// Matching hashtags.
-    #[serde(default)]
+    #[serde(borrow, default)]
     pub hashtags: Vec<Tag<'static>>,
     /// Matching groups, which may include a search [`position`](Group::position).
-    #[serde(default)]
+    #[serde(borrow, default)]
     pub groups: Vec<Group<'static>>,
 }
 
@@ -149,7 +149,9 @@ pub struct SearchResults {
 #[serde(deny_unknown_fields)]
 pub struct Context {
     /// Statuses this one is a reply to, oldest first.
+    #[serde(borrow)]
     pub ancestors: Vec<Status<'static>>,
     /// Replies (and their replies) to this status.
+    #[serde(borrow)]
     pub descendants: Vec<Status<'static>>,
 }
