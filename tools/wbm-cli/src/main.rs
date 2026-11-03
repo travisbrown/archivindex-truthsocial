@@ -1,6 +1,6 @@
 //! Command-line tools for validating and processing Truth Social Wayback Machine archives.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::num::NonZeroUsize;
@@ -106,24 +106,13 @@ fn run() -> Result<CommandOutcome, Error> {
         } => {
             let digests = BufReader::new(File::open(digests)?)
                 .lines()
-                .filter_map(|result| {
-                    result
-                        .map_err(Error::from)
-                        .and_then(|line| {
-                            // Drop the two "no real content" digests (empty and not-found bodies)
-                            // from the already-captured set, so a status whose only capture is one
-                            // of them is still surfaced as missing and re-fetched.
-                            if line == EMPTY_BODY_DIGEST || line == NOT_FOUND_BODY_DIGEST {
-                                Ok(None)
-                            } else {
-                                line.parse::<Sha1Digest>()
-                                    .map_err(|error| Error::from(std::io::Error::other(error)))
-                                    .map(Some)
-                            }
-                        })
-                        .map_or_else(|error| Some(Err(error)), |value| value.map(Ok))
+                .map(|line| {
+                    line.map_err(Error::from).and_then(|line| {
+                        line.parse::<Sha1Digest>()
+                            .map_err(|error| Error::from(std::io::Error::other(error)))
+                    })
                 })
-                .collect::<Result<BTreeSet<_>, Error>>()?;
+                .collect::<Result<HashSet<_>, Error>>()?;
 
             log::info!("Read {} digests", digests.len());
 
@@ -131,12 +120,7 @@ fn run() -> Result<CommandOutcome, Error> {
 
             log::info!("Read {} CDX rows", rows.len());
 
-            for row in rows
-                .iter()
-                .rev()
-                .filter(|row| !digests.contains(&row.digest))
-                .take(count)
-            {
+            for row in next_rows(&rows, &digests).take(count) {
                 println!(
                     "https://truthsocial.com/api/v1/statuses/{},{},{}",
                     row.id, row.timestamp, row.digest
@@ -463,6 +447,33 @@ fn index_compact(path: &Path) -> Result<(HashSet<u64>, HashSet<Sha1Digest>), Err
     Ok((ids, digests))
 }
 
+/// Selects the CDX rows still worth fetching, in reverse input order.
+///
+/// A row with real content is selected when its digest is not in `captured`. A row whose digest is
+/// that of an empty or "record not found" body is selected only when no row for the same status
+/// has other content, so a status with no real capture is retried, but these rows are not printed
+/// for a status that has one.
+fn next_rows<'a>(
+    rows: &'a [cdx::Row],
+    captured: &HashSet<Sha1Digest>,
+) -> impl Iterator<Item = &'a cdx::Row> {
+    let no_content = [EMPTY_BODY_DIGEST, NOT_FOUND_BODY_DIGEST]
+        .map(|digest| digest.parse::<Sha1Digest>().expect("valid digest constant"));
+    let with_content = rows
+        .iter()
+        .filter(|row| !no_content.contains(&row.digest))
+        .map(|row| row.id)
+        .collect::<HashSet<_>>();
+
+    rows.iter().rev().filter(move |row| {
+        if no_content.contains(&row.digest) {
+            !with_content.contains(&row.id)
+        } else {
+            !captured.contains(&row.digest)
+        }
+    })
+}
+
 /// Prints, as headerless CSV, the CDX entries in `cdx_dir` whose status ID and content digest are
 /// both absent from `compact`.
 ///
@@ -779,7 +790,8 @@ enum Command {
         base: PathBuf,
     },
     /// Print `(url, timestamp, digest)` rows from a CDX CSV whose digest is not in a file of
-    /// already-captured digests, in reverse input order
+    /// already-captured digests, in reverse input order. Empty and "record not found" captures are
+    /// printed only for statuses with no other row.
     Next {
         /// Path to a newline-delimited file of Base32 SHA-1 digests already captured
         #[arg(long)]
@@ -863,6 +875,31 @@ mod tests {
     fn reservoir_sample_propagates_error() {
         let result = reservoir_sample([Ok(1), Err("boom"), Ok(3)].into_iter(), 5);
         assert_eq!(result, Err("boom"));
+    }
+
+    /// Empty and "record not found" rows used to be printed on every run, even for a status that
+    /// already had a real capture. They are now printed only for a status with no other row.
+    #[test]
+    fn next_rows_retries_only_statuses_without_content() {
+        let timestamp = "20220227025629".parse().expect("valid timestamp");
+        let row = |id, digest: &str| cdx::Row {
+            id,
+            timestamp,
+            digest: digest.parse().expect("valid digest"),
+        };
+        let captured = "AAACL3SP57UDUZWUNKYLBS5GRVVO57JF";
+        let uncaptured = "AAA7WWHWJB6AP4HLEMQBVJQP6QSDQV4Q";
+        let rows = [
+            row(1, captured),
+            row(1, NOT_FOUND_BODY_DIGEST),
+            row(2, EMPTY_BODY_DIGEST),
+            row(3, uncaptured),
+            row(3, NOT_FOUND_BODY_DIGEST),
+        ];
+
+        let selected = next_rows(&rows, &HashSet::from([rows[0].digest])).collect::<Vec<_>>();
+
+        assert_eq!(selected, [&rows[3], &rows[2]]);
     }
 
     /// Captures that hold no statuses still count as present. They used to abort `missing`, even
