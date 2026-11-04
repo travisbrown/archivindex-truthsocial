@@ -626,11 +626,11 @@ fn compact(
         // Gzip archives carry their inferred reproduction parameters in the `format` object;
         // everything else (plain UTF-8 text included) uses the default format.
         |bytes, _resolution| {
-            (
+            Ok((
                 (),
                 GzipParams::infer(bytes)
                     .map_or_else(FormatInfo::default, |params| params.format_info()),
-            )
+            ))
         },
     )?;
 
