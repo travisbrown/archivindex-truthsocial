@@ -16,6 +16,8 @@ use chrono::{DateTime, NaiveDate, Utc};
 use either::Either;
 use serde_field_attributes::{integer_str, optional_integer_str, optional_usize};
 
+mod tv_timestamp;
+
 /// A Truth Social status (post).
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
@@ -181,7 +183,7 @@ pub struct Status<'a> {
     #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub title: Option<Cow<'a, str>>,
 
-    /// Tombstone information if this status was deleted.
+    /// Tombstone information if this status was deleted or muted.
     pub tombstone: Option<Tombstone>,
 
     /// Timestamp when this status was deleted, if applicable.
@@ -368,11 +370,11 @@ impl<'de: 'a, 'a> serde::Deserialize<'de> for ResponseBody<'a> {
     }
 }
 
-/// Tombstone information for a deleted status.
+/// Tombstone information for a deleted or muted status.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Tombstone {
-    /// Reason for deletion.
+    /// Reason the status is unavailable.
     pub reason: TombstoneReason,
 }
 
@@ -404,9 +406,12 @@ pub struct TvMetadata<'a> {
     pub channel_id: u64,
 
     /// When the TV program starts.
+    #[serde(deserialize_with = "tv_timestamp::deserialize")]
     pub start_time: DateTime<Utc>,
 
-    /// When the TV program ends.
+    /// When the TV program ends. Unsigned extended years (such as `57564`) are accepted and
+    /// serialize with an explicit `+` sign.
+    #[serde(deserialize_with = "tv_timestamp::deserialize")]
     pub end_time: DateTime<Utc>,
 
     /// Name/title of the TV program.
@@ -435,6 +440,8 @@ pub struct TvMetadata<'a> {
 pub enum TombstoneReason {
     /// The status was deleted by the user or a moderator.
     Deleted,
+    /// The status is muted for the current user.
+    Muted,
 }
 
 /// Visibility level of a status.
@@ -515,11 +522,11 @@ pub struct Account<'a> {
     #[serde(borrow)]
     pub header_static: Cow<'a, str>,
 
-    /// Number of followers.
-    pub followers_count: u64,
+    /// Number of followers (occasionally negative for unknown reasons).
+    pub followers_count: i64,
 
-    /// Number of accounts this account follows.
-    pub following_count: u64,
+    /// Number of accounts this account follows (occasionally negative for unknown reasons).
+    pub following_count: i64,
 
     /// Number of statuses posted (occasionally negative for unknown reasons).
     pub statuses_count: i64,
@@ -1160,8 +1167,17 @@ pub struct Group<'a> {
     #[serde(borrow, default, with = "archivindex_serde::borrowable_str::option")]
     pub group_visibility: Option<Cow<'a, str>>,
 
+    /// Visibility setting for group statuses. Only `null` has been observed in fixtures;
+    /// non-null values are rejected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub statuses_visibility: Option<()>,
+
     /// When this group was created.
     pub created_at: Option<DateTime<Utc>>,
+
+    /// When this group was last updated, if available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
 
     /// When this group was deleted, if it has been.
     pub deleted_at: Option<DateTime<Utc>>,
