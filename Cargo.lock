@@ -122,7 +122,7 @@ dependencies = [
 [[package]]
 name = "archivindex-cdx"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#b493951db0390c24d6748e114ed7c86147bd6cd7"
+source = "git+https://github.com/travisbrown/archivindex#cace98199ff7866ddbf1af6cbc7b6e35f231934b"
 dependencies = [
  "archivindex-serde",
  "bounded-static",
@@ -135,7 +135,7 @@ dependencies = [
 [[package]]
 name = "archivindex-cli-support"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#b493951db0390c24d6748e114ed7c86147bd6cd7"
+source = "git+https://github.com/travisbrown/archivindex#cace98199ff7866ddbf1af6cbc7b6e35f231934b"
 dependencies = [
  "clap",
  "ctrlc",
@@ -151,7 +151,7 @@ dependencies = [
 [[package]]
 name = "archivindex-digest"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#b493951db0390c24d6748e114ed7c86147bd6cd7"
+source = "git+https://github.com/travisbrown/archivindex#cace98199ff7866ddbf1af6cbc7b6e35f231934b"
 dependencies = [
  "data-encoding",
  "thiserror",
@@ -160,7 +160,7 @@ dependencies = [
 [[package]]
 name = "archivindex-lines"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#b493951db0390c24d6748e114ed7c86147bd6cd7"
+source = "git+https://github.com/travisbrown/archivindex#cace98199ff7866ddbf1af6cbc7b6e35f231934b"
 dependencies = [
  "thiserror",
 ]
@@ -168,7 +168,7 @@ dependencies = [
 [[package]]
 name = "archivindex-publication"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#b493951db0390c24d6748e114ed7c86147bd6cd7"
+source = "git+https://github.com/travisbrown/archivindex#cace98199ff7866ddbf1af6cbc7b6e35f231934b"
 dependencies = [
  "tempfile",
  "thiserror",
@@ -177,7 +177,7 @@ dependencies = [
 [[package]]
 name = "archivindex-serde"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#b493951db0390c24d6748e114ed7c86147bd6cd7"
+source = "git+https://github.com/travisbrown/archivindex#cace98199ff7866ddbf1af6cbc7b6e35f231934b"
 dependencies = [
  "serde",
 ]
@@ -185,7 +185,7 @@ dependencies = [
 [[package]]
 name = "archivindex-surt"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex#b493951db0390c24d6748e114ed7c86147bd6cd7"
+source = "git+https://github.com/travisbrown/archivindex#cace98199ff7866ddbf1af6cbc7b6e35f231934b"
 dependencies = [
  "bounded-static",
  "thiserror",
@@ -290,7 +290,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-cdx",
  "archivindex-digest",
@@ -311,7 +311,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-cas"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-publication",
  "archivindex-wbm",
@@ -325,7 +325,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-cdx-index"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-wbm",
  "chrono",
@@ -336,7 +336,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-downloader"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-publication",
  "archivindex-wbm",
@@ -356,7 +356,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-invalid-log"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-wbm",
  "bounded-static",
@@ -368,7 +368,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-lines",
  "archivindex-serde",
@@ -384,7 +384,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json-gzip"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-wbm-json",
  "flate2",
@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-json-processing"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-lines",
  "archivindex-publication",
@@ -422,7 +422,7 @@ dependencies = [
 [[package]]
 name = "archivindex-wbm-test-data"
 version = "0.1.0"
-source = "git+https://github.com/travisbrown/archivindex-wbm#2456467ac0b9782071bedd41acba53757bef43ea"
+source = "git+https://github.com/travisbrown/archivindex-wbm#f455049c6c961f1fe6a737dc48854eba9e605bf5"
 dependencies = [
  "archivindex-wbm",
  "archivindex-wbm-cas",
@@ -532,7 +532,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn 3.0.9",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1258,9 +1258,9 @@ checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
 name = "flate2"
-version = "1.1.10"
+version = "1.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e634e2e0ebac1ee034020da1ca582e17ffe4e0f5e985823721e168928136dcb"
+checksum = "626d4928326b646e70f65ed36fc7cf9f206bdb68a0019ee7c6b4709da4e084c4"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -2827,9 +2827,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e7523beb55eece201a2356bee0bbca0d1ab466c14c07703b2e0ee6d42cb0c2c"
+checksum = "9c187e0a369471c550af028cba56d4f4fa2a489ad28151ae95a4d340a2a8b782"
 dependencies = [
  "serde_core",
 ]
@@ -3199,9 +3199,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.2.0+spec-1.1.0"
+version = "1.2.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ffcdf8f50436dbbfd675c1fe1b8e0854f42b7defea8584bdebe1aee900e561"
+checksum = "d5755c51863cdac711f1956baf8eb9588e060755f7d3c4c979e70ea1e1f32cd7"
 dependencies = [
  "indexmap",
  "serde_core",
@@ -3214,9 +3214,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "1.1.2+spec-1.1.0"
+version = "1.1.3+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b86d767906c6c42421dcba507eb9d203e779497710a47782a224bb871653053"
+checksum = "173f25c883cd2176a2d8212155638c0a60d484a9d84546d270866f40f56b6e49"
 dependencies = [
  "serde_core",
 ]
